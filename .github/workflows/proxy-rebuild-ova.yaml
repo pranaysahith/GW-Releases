@@ -1,0 +1,68 @@
+# This is a basic workflow to help you get started with Actions
+
+name: proxy-rebuild-ova
+env:
+  AWS_DEFAULT_REGION: eu-west-1
+# Controls when the action will run. Triggers the workflow on push or pull request
+# events but only for the master branch
+on:
+  workflow_dispatch:
+    inputs:
+      icap_server_ip: 
+        description: "IP address of ICAP server to be used in proxy server"
+        default: "91.211.153.139"
+        required: true
+  push:
+    branches: [ main, github_actions ]
+    paths-ignore:
+      - 'aws-jmeter-test-engine'
+      - 'gp-load-balancer'
+      - 'GW-proxy'
+      - 'icap-infrastructure'
+      - 'k8-rebuild'
+      - '.github/workflows/k8-rebuild.yaml'
+      - '.github/workflows/icap-server.yaml'
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  build-ami:
+    # The type of runner that the job will run on
+    runs-on: ubuntu-latest
+    # Steps represent a sequence of tasks that will be executed as part of the job
+    steps:
+
+    # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it  
+    - uses: actions/checkout@v2
+      with:
+        submodules: true
+
+    # - name: Update submodules
+    #   run: |
+    #     git submodule foreach git fetch
+    #     git submodule foreach git pull origin main
+
+    # - name: Configure AWS credentials
+    #   uses: aws-actions/configure-aws-credentials@v1
+    #   with:
+    #     aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY }}
+    #     aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+    #     aws-region: eu-west-1
+
+    # build artifact
+    - name: Setup Packer, ovftool and xorriso
+      run: |
+        cd vmware-scripts/packer
+        curl -o packer.zip https://releases.hashicorp.com/packer/1.6.6/packer_1.6.6_linux_amd64.zip
+        unzip -o packer.zip
+        sudo mv packer /usr/local/bin
+        wget http://build-squid.eng.vmware.com/build/mts/release/bora-13912821/publish/VMware-ovftool-4.3.0-13912821-lin.x86_64.zip
+        unzip VMware-ovftool-4.3.0-13912821-lin.x86_64.zip
+        export PATH=$PATH:$(pwd)/ovftool
+        sudo apt-get update -y
+        sudo apt-get install -y xorriso
+        
+    # - name: Build AMI/OVA
+    #   run: |
+    #     cd vmware-scripts/packer
+    #     cp -r target/proxy-rebuild/* setup/
+    #     packer build -color=false -on-error=cleanup -var github_sha=${{ github.sha }} -var vm_name=proxy-rebuild -var icap_server_ip=${{ github.event.inputs.icap_server_ip }} -var region=${{ env.AWS_DEFAULT_REGION }} -var aws_access_key=${{ secrets.AWS_ACCESS_KEY }} -var aws_secret_key=${{ secrets.AWS_SECRET_ACCESS_KEY }} aws-ami.json
