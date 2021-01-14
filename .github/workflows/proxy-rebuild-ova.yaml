@@ -55,7 +55,7 @@ jobs:
         # install ovftools
         aws s3 cp s3://glasswall-sow-ova/packer-tools/VMware-ovftool-4.4.1-16812187-lin.x86_64.bundle .
         chmod +x ./VMware-ovftool-4.4.1-16812187-lin.x86_64.bundle
-        echo | ./VMware-ovftool-4.4.1-16812187-lin.x86_64.bundle --eulas-agreed
+        echo | sudo ./VMware-ovftool-4.4.1-16812187-lin.x86_64.bundle --eulas-agreed
         # install xorriso
         sudo apt-get update -y
         sudo apt-get install -y xorriso
