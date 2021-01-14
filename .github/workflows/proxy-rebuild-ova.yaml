@@ -85,7 +85,7 @@ jobs:
         EOF
         cp cdrom/user-data.example cdrom/user-data
         sed -i "s|GATEWAY|$VM_GATEWAY|g" cdrom/user-data
-        sed -i "s|IPADDRESS/NETMASK|$VM_HOST/27|g" cdrom/user-data
+        sed -i "s|IPADDRESS/NETMASK|$VM_HOST|g" cdrom/user-data
         sed -i "s|NAMESERVER|8.8.8.8|g" cdrom/user-data
         mv setup setup.orig
         mv ../$VM_NAME setup
