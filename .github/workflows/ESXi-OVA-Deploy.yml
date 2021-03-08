@@ -3,7 +3,8 @@ env:
   VSPHERE_HOST: "${{ secrets.ESXI_HOST }}"
   VSPHERE_USERNAME: "${{ secrets.ESXI_USER }}"
   VSPHERE_PASSWORD: "${{ secrets.ESXI_PASSWORD }}"
-  OVA_PATH: "${{ github.event.inputs.OVA_PATH }}"
+  OVA_PATH: /home/runner/work/GW-Releases/GW-Releases/k8-rebuild-centos-23da99531185dc4e8b0084fd5c476a05a2547ea7-31.ova
+  # OVA_PATH: "${{ github.event.inputs.OVA_PATH }}"
   VM_NAME: "${{ github.event.inputs.VM_NAME }}"
 
 on:
@@ -56,6 +57,8 @@ jobs:
     - name: Run ova deployment
       run: |
         pwd
+        sudo apt install wget -y
+        sudo wget https://glasswall-sow-ova.s3-eu-west-1.amazonaws.com/vms/k8-rebuild-centos/k8-rebuild-centos-23da99531185dc4e8b0084fd5c476a05a2547ea7-31.ova
         cd vmware-scripts/scripts
         python3 -m automated-deployment.src.VM_deploy_ova
 
