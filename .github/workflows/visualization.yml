@@ -58,10 +58,10 @@ jobs:
         # Run script
         python ../submodule_visualization.py ../GW-Releases "[filedrop-centos icap-centos $(echo $tags)]" ../tmp
         
-        git checkout main
-        git submodule update --init --recursive
-        git reset --hard HEAD
-        git pull
+#        git checkout main
+#        git submodule update --init --recursive
+#        git reset --hard HEAD
+#        git pull
         
         # Checkout to new branch
         BRANCH_NAME=visualization-${GITHUB_SHA::7}
