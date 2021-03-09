@@ -38,7 +38,7 @@ class Tree(object):
         parent_repo_name=subprocess.check_output(main_repo_cmd, encoding='UTF-8').split("/")[-1].strip()
         return parent_repo_name
 
-    def get_master_branch(self):
+    def get_current_branch(self):
         git_command=["git","branch","--show-current"]
         master_branch=subprocess.check_output(git_command, encoding='UTF-8')
         return master_branch
@@ -91,10 +91,8 @@ class Tree(object):
         label = ""
         main_repo_name=self.get_main_repo_name()
         if main_repo_name in self.data['name']:
-            label=sep + label+self.data["name"]
-            label = label + sep + sep+ "branch =" + self.get_master_branch()+sep
-            #label += sep+"filedrop-centos"+sep
-
+            label= sep +self.data["name"]
+            label + =  sep + sep + "branch = " + self.get_current_branch() + sep
 
         if with_url and 'url' in self.data and self.data['url']:
             repo_name = self.data['url'].replace("https://github.com/", "")
@@ -183,7 +181,7 @@ class Parser:
         subprocess.check_output(tags)
         tag_commit_id = subprocess.check_output(get_tag_commit, encoding='UTF-8').strip()
         args = ["git", "describe", "--tags", tag_commit_id]
-        latest_tag = subprocess.check_output(args, encoding='UTF-8')
+        latest_tag = subprocess.check_output(args, encoding='UTF-8').strip()
         return latest_tag
 
 @click.command()
@@ -204,12 +202,13 @@ class Parser:
 def main(repo, graphmode, out, branches, path):
     branches=branches.strip('][').split(' ')
     parser = Parser()
-    print(branches)
     latest_tag=parser.get_latest_tag()
+
     for branch in branches:
         graph_path = path + "/" + out + "_" + branch
         root = repo
         if branch == latest_tag:
+            print(branch)
             graph_path = path + "/" + out + "_" + "latest_tag"
         parser.checkout_branch(branch=branch)
         tree = parser.parse(root)
