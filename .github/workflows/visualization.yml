@@ -5,11 +5,13 @@ name: visualization
 # Controls when the action will run. 
 on:
   push:
+    branches: [ main ]
+    paths-ignore:
+      - 'graph/*'
   # Pattern matched against refs/tags
     tags:        
       - '*'           # Push events to every tag
-       
-  # Allows you to run this workflow manually from the Actions tab
+ # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
 
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
@@ -24,7 +26,6 @@ jobs:
     # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it  
     - uses: actions/checkout@v2
       with:
-        repository: k8-proxy/GW-Releases
         token: ${{secrets.GITHUBPAT}}
         submodules: recursive           
     - name: Set up Python 3.7
@@ -43,26 +44,56 @@ jobs:
       run: |
         git config user.name github-actions@github.com
         git config user.email github-actions
-        BRANCH_NAME=visualization-${GITHUB_SHA::7}
+        
         git remote -v
+        git fetch --all
+
+        #Copy script
+        mkdir ../tmp
+        cp scripts/submodule_visualization.py ../submodule_visualization.py
+
+        #list tags
+        tags=$(git tag -l)
+
+        # Run script
+        python ../submodule_visualization.py ../GW-Releases "[main filedrop-centos icap-centos $(echo $tags)]" ../tmp
+        
+        git checkout main
+        git submodule update --init --recursive
+        git reset --hard HEAD
+        git pull
+        
+        # Checkout to new branch
+        BRANCH_NAME=visualization-${GITHUB_SHA::7}
         git checkout -b $BRANCH_NAME
         
-        # delete older graph
-        rm graph.png
-        git add 'graph.png'
-        git commit -m "deleted older graph"
-
-        python scripts/submodule_visualization.py ../GW-Releases
         
+        # Delete older graph
+        DIR="graph"
+        if [ -d "$DIR" ]; then
+        # Take action if $DIR exists. #
+           git rm -r graph
+           # rm -rf graph
+           git commit -m "deleted older graph"
+          
+        fi
+
+        # Copy all graphs
+        ls ../tmp
+        mkdir -p graph
+        cp -R ../tmp/* graph/
+
         # add new graph
         git status
-        git add 'graph.png'
+        git add graph/*
         git commit -m "Updates new graph"
         git push -u origin $BRANCH_NAME
-        
+
         # create a pull request from a new branch to target branch, merge the PR and delete the source branch.
-        gh pr create --title "Update visualization for new tag" --body ""
+        # gh pr create --title "Update visualization for new tag" --body ""
         sleep 5s
-        gh pr merge $BRANCH_NAME -s -d
+        # gh pr merge $BRANCH_NAME -s -d
+        rm -rf ../tmp
+        rm ../submodule_visualization.py 
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUBPAT }}
