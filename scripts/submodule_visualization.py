@@ -38,15 +38,6 @@ class Tree(object):
         parent_repo_name=subprocess.check_output(main_repo_cmd, encoding='UTF-8').split("/")[-1].strip()
         return parent_repo_name
 
-    def get_master_tag(self):
-        get_tag_commit = ["git", "rev-list", "--tags", "--max-count=1"]
-        tags=['git', 'fetch', '--all', '--tags']
-        subprocess.check_output(tags)
-        tag_commit_id = subprocess.check_output(get_tag_commit, encoding='UTF-8').strip()
-        args = ["git", "describe", "--tags", tag_commit_id]
-        master_tag = subprocess.check_output(args, encoding='UTF-8')
-        return master_tag
-
     def get_master_branch(self):
         git_command=["git","branch","--show-current"]
         master_branch=subprocess.check_output(git_command, encoding='UTF-8')
@@ -186,7 +177,14 @@ class Parser:
         subprocess.check_output(cmd)
 
 
-
+    def get_latest_tag(self):
+        get_tag_commit = ["git", "rev-list", "--tags", "--max-count=1"]
+        tags=['git', 'fetch', '--all', '--tags']
+        subprocess.check_output(tags)
+        tag_commit_id = subprocess.check_output(get_tag_commit, encoding='UTF-8').strip()
+        args = ["git", "describe", "--tags", tag_commit_id]
+        latest_tag = subprocess.check_output(args, encoding='UTF-8')
+        return latest_tag
 
 @click.command()
 @click.option('-g', '--graphmode',
@@ -205,11 +203,14 @@ class Parser:
 
 def main(repo, graphmode, out, branches, path):
     branches=branches.strip('][').split(' ')
+    parser = Parser()
     print(branches)
+    latest_tag=parser.get_latest_tag()
     for branch in branches:
-        graph_path= path + "/" + out +"_"+ branch
+        graph_path = path + "/" + out + "_" + branch
         root = repo
-        parser=Parser()
+        if branch == latest_tag:
+            graph_path = path + "/" + out + "_" + "latest_tag"
         parser.checkout_branch(branch=branch)
         tree = parser.parse(root)
         graph = pydot.Dot(graph_type='digraph',rankdir = 'LR')
