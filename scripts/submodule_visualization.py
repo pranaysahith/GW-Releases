@@ -38,10 +38,13 @@ class Tree(object):
         parent_repo_name=subprocess.check_output(main_repo_cmd, encoding='UTF-8').split("/")[-1].strip()
         return parent_repo_name
 
-    def get_current_branch(self):
+    def get_current_branch_or_tag(self):
         git_command=["git","branch","--show-current"]
-        master_branch=subprocess.check_output(git_command, encoding='UTF-8')
-        return master_branch
+        HEAD = subprocess.check_output(git_command, encoding='UTF-8')
+        if not HEAD:
+            git_command = ["git", "describe", "--tags"]
+            HEAD = subprocess.check_output(git_command, encoding='UTF-8')
+        return HEAD
 
     def buildGraph(self, graph, parent, indentation, graphmode, with_url,level=0):
         color="#B8CFE0"
@@ -91,8 +94,8 @@ class Tree(object):
         label = ""
         main_repo_name=self.get_main_repo_name()
         if main_repo_name in self.data['name']:
-            label= sep +self.data["name"]
-            label + =  sep + sep + "branch = " + self.get_current_branch() + sep
+            label += sep +self.data["name"]
+            label +=  sep + sep + "branch = " + self.get_current_branch_or_tag() + sep
 
         if with_url and 'url' in self.data and self.data['url']:
             repo_name = self.data['url'].replace("https://github.com/", "")
@@ -173,7 +176,6 @@ class Parser:
         subprocess.check_output(cmd)
         cmd = ["git", "submodule", "update", "--init", "--recursive"]
         subprocess.check_output(cmd)
-
 
     def get_latest_tag(self):
         get_tag_commit = ["git", "rev-list", "--tags", "--max-count=1"]
