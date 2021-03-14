@@ -1,13 +1,14 @@
 # GW-Releases
 
-## Latest tag
+## Latest tag from main
+
 ![Alt text](graph/graph_latest_tag.png)
 
-## Branch : file-drop-centos
+## Branch : filedrop-centos
 
 ![Alt text](graph/graph_filedrop-centos.png)
 
-## Branch : icap-drop-centos
+## Branch : icap-centos
 
 ![Alt text](graph/graph_icap-centos.png)
 

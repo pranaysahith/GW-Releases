@@ -22,7 +22,6 @@ jobs:
 
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
-   
     # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it  
     - uses: actions/checkout@v2
       with:
@@ -46,14 +45,12 @@ jobs:
         git config user.email github-actions
         git config --global http.postBuffer 1048576000
 
+        # Sync submodules
         git remote -v
-
         git submodule sync
         git submodule update --init
 
-
-
-        #Copy script
+        # Copy script
         mkdir ../tmp
         cp scripts/submodule_visualization.py ../submodule_visualization.py
 
@@ -65,6 +62,7 @@ jobs:
         # Run script
         python ../submodule_visualization.py ../GW-Releases "[main filedrop-centos icap-centos $(echo $tags)]" ../tmp
 
+        # Reset submodules to main
         git checkout main
         git reset --hard HEAD
         git submodule update --init --recursive
@@ -93,11 +91,15 @@ jobs:
         git add graph/*
         git commit -m "Updates new graph"
         git push -u origin $BRANCH_NAME
+
         # create a pull request from a new branch to target branch, merge the PR and delete the source branch.
-        # gh pr create --title "Update visualization for new tag" --body ""
+        gh pr create --title "Update visualization" --body ""
         sleep 5s
-        # gh pr merge $BRANCH_NAME -s -d
+        gh pr merge $BRANCH_NAME -s -d
+
+        # Delete temp files
         rm -rf ../tmp
         rm ../submodule_visualization.py
+
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUBPAT }}
