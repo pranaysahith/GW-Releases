@@ -22,7 +22,6 @@ jobs:
 
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
-   
     # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it  
     - uses: actions/checkout@v2
       with:
@@ -44,38 +43,42 @@ jobs:
       run: |
         git config user.name github-actions@github.com
         git config user.email github-actions
-        
-        git remote -v
-        git fetch --all
+        git config --global http.postBuffer 1048576000
 
-        #Copy script
+        # Sync submodules
+        git remote -v
+        git submodule sync
+        git submodule update --init
+
+        # Copy script
         mkdir ../tmp
         cp scripts/submodule_visualization.py ../submodule_visualization.py
 
         #list tags
+        git fetch --recurse-submodules=no
         tags=$(git tag -l)
+        echo $tags
 
         # Run script
         python ../submodule_visualization.py ../GW-Releases "[main filedrop-centos icap-centos $(echo $tags)]" ../tmp
-        
-        # git checkout main
-        # git submodule update --init --recursive
-        # git reset --hard HEAD
-        # git pull
-        
-        # Checkout to new branch
+
+        # Reset submodules to main
+        git checkout main
+        git reset --hard HEAD
+        git submodule update --init --recursive
+
+        # Create branch
         BRANCH_NAME=visualization-${GITHUB_SHA::7}
         git checkout -b $BRANCH_NAME
-        
-        
+
         # Delete older graph
         DIR="graph"
         if [ -d "$DIR" ]; then
+        echo "deleting graph one"
         # Take action if $DIR exists. #
-           git rm -r graph
-           # rm -rf graph
-           git commit -m "deleted older graph"
-          
+          git rm -r graph
+          # rm -rf graph
+          git commit -m "deleted older graph"
         fi
 
         # Copy all graphs
@@ -83,17 +86,20 @@ jobs:
         mkdir -p graph
         cp -R ../tmp/* graph/
 
-        # add new graph
+        # Add new graph
         git status
         git add graph/*
         git commit -m "Updates new graph"
         git push -u origin $BRANCH_NAME
 
         # create a pull request from a new branch to target branch, merge the PR and delete the source branch.
-        gh pr create --title "Update visualization for new tag" --body ""
+        gh pr create --title "Updated visualization graphs" --body ""
         sleep 5s
         gh pr merge $BRANCH_NAME -s -d
+
+        # Delete temp files
         rm -rf ../tmp
-        rm ../submodule_visualization.py 
+        rm ../submodule_visualization.py
+
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUBPAT }}
