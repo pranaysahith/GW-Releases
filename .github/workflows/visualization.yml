@@ -93,7 +93,7 @@ jobs:
         git push -u origin $BRANCH_NAME
 
         # create a pull request from a new branch to target branch, merge the PR and delete the source branch.
-        gh pr create --title "Update visualization" --body ""
+        gh pr create --title "Updated visualization graphs" --body ""
         sleep 5s
         gh pr merge $BRANCH_NAME -s -d
 
