@@ -179,11 +179,12 @@ class Parser:
 
     def get_latest_tag(self):
         get_tag_commit = ["git", "rev-list", "--tags", "--max-count=1"]
-        tags=['git', 'fetch', '--all', '--tags']
+        tags=['git', 'fetch', '--recurse-submodules=no']
         subprocess.check_output(tags)
         tag_commit_id = subprocess.check_output(get_tag_commit, encoding='UTF-8').strip()
-        args = ["git", "describe", "--tags", tag_commit_id]
-        latest_tag = subprocess.check_output(args, encoding='UTF-8').strip()
+        #args = ["git", "describe", "--tags", tag_commit_id]
+        args = ["git", "for-each-ref", "refs/tags", "--sort=-taggerdate", "--format='%(refname:short)'", "--count=1"]
+        latest_tag = subprocess.check_output(args, encoding='UTF-8').strip().replace("'", "")
         return latest_tag
 
 @click.command()
@@ -221,6 +222,3 @@ def main(repo, graphmode, out, branches, path):
 
 if __name__ == '__main__':
     main()
-
-
-
