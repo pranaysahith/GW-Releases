@@ -140,3 +140,23 @@ Download [File Drop OVA]()
      - k8-rebuild ([sow-_version](https://github.com/k8-proxy/k8-rebuild/tree/sow_version))
        - k8-rebuild-rest-api ([sow_version](https://github.com/k8-proxy/k8-rebuild-rest-api/tree/sow_version))
        - k8-rebuild-file-drop ([sow_version](https://github.com/k8-proxy/k8-rebuild-file-drop/tree/sow_version))
+
+## ESXi-Deployment Workflow
+
+* This workflow automatically deploys a given OVA on glasswall's ESXi server (defined in github secrets).
+* Prerequisites (mandatory): 
+  * Run the workflow from "ova_deployment" branch.
+  * OVA's s3 download link.
+  * The name of the VM created from the OVA on the ESXi server
+  * choose either to run network configuration script on the VM after powering it on or not (true or false)
+* Prerequisites (optional) needed if running network configuration option is set to be true:
+  * IP address to be assigned to the VM after launch ex.(192.168.30.240/24) .
+  * Gateway to be assigned to the VM after launch.
+  * DNS server to be assigned to the VM after launch .
+  * OVA username.
+  * OVA password.
+  * OVA base operating system (centos or ubuntu)
+* Manually trigger the workflow from github **Actions**, and provide the above prerequisites.
+
+![image](https://user-images.githubusercontent.com/58347752/111388167-7f6e3c00-86b7-11eb-863c-0fc8a1668cf4.png) ![image](https://user-images.githubusercontent.com/58347752/111388220-914fdf00-86b7-11eb-9c79-71e20c7c5e22.png)
+
