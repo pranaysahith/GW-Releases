@@ -3,24 +3,62 @@ env:
   VSPHERE_HOST: "${{ secrets.ESXI_HOST }}"
   VSPHERE_USERNAME: "${{ secrets.ESXI_USER }}"
   VSPHERE_PASSWORD: "${{ secrets.ESXI_PASSWORD }}"
-  OVA_PATH: /home/runner/work/GW-Releases/GW-Releases/k8-rebuild-centos-23da99531185dc4e8b0084fd5c476a05a2547ea7-31.ova
-  # OVA_PATH: "${{ github.event.inputs.OVA_PATH }}"
+  OVA_PATH: /home/runner/work/GW-Releases/GW-Releases/ova/downloaded.ova
   VM_NAME: "${{ github.event.inputs.VM_NAME }}"
+  VM_UPLOAD_PATH_CENTOS: /tmp/centos_network.sh
+  VM_UPLOAD_PATH_UBUNTU: /tmp/network.sh
+  VM_IP: "${{ github.event.inputs.VM_IP }}"
+  VM_GATEWAY: "${{ github.event.inputs.VM_GATEWAY }}"
+  VM_DNS: "${{ github.event.inputs.VM_DNS }}"
+  env_set_flag: true
+  UPLOAD_FILE_NAME_CENTOS: centos_network.sh
+  UPLOAD_FILE_NAME_UBUNTU: network.sh
+  OS_TYPE: "${{ github.event.inputs.OS_type }}"
+  VM_TO_FIND: "${{ github.event.inputs.VM_NAME }}"
+  VM_USERNAME: "${{ github.event.inputs.OVA_username }}"
+  VM_PASSWORD: "${{ github.event.inputs.OVA_password }}"
+  VM_SUDO_PASSWORD: "${{ github.event.inputs.OVA_password }}"
+
 
 on:
   workflow_dispatch:
     inputs:
-      OVA_PATH:
-        description: Direct download link for the OVA
+      ova_url:
+        description: OVA s3 download link.
         required: true
       VM_NAME:
         description: VM name on ESXi after deployment
         default: workflow-deploy-vm
         required: true
-  push:
-    branches: [ ova_deployment ]    
+      Configure_Network:
+        description: Set "true" to run network configuration, or "false" to skip.
+        default: false
+        required: true
+      VM_IP:
+        description: IP address to be assigned to the VM after lanch ex.(192.168.30.240/24)
+        default: 192.168.30.240/24
+        required: false
+      VM_GATEWAY:
+        description: Gateway to be assigned to the VM after lanch
+        default: 192.168.30.1
+        required: false
+      VM_DNS:
+        description: DNS server to be assigned to the VM after lanch ex
+        default: 8.8.8.8
+        required: false
+      OVA_username:
+        description: ova username
+        required: false
+      OVA_password:
+        description: ova password
+        required: false
+      OS_type:
+        description: ova base (centos or ubuntu)
+        required: false
+  # push:
+  #   branches: [ ova_deployment ]    
 jobs:
-  deploy:
+  deploy-ova:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout GW-Releases
@@ -46,19 +84,65 @@ jobs:
 
     - name: Install dependencies
       run: |
-        pwd
-        cd ..
-        pwd
-        sudo cp -r k8-py-vmware/k8_vmware GW-Releases/vmware-scripts/scripts
-        cd GW-Releases/vmware-scripts/scripts/automated-deployment
+        cd vmware-scripts/scripts/automated-deployment
         pip3 install -r requirements.txt
         echo "completed installing dependancies!!"
         
-    - name: Run ova deployment
+    - name: Download OVA
       run: |
         pwd
         sudo apt install wget -y
-        sudo wget https://glasswall-sow-ova.s3-eu-west-1.amazonaws.com/vms/k8-rebuild-centos/k8-rebuild-centos-23da99531185dc4e8b0084fd5c476a05a2547ea7-31.ova
+        sudo mkdir ova
+        cd ova
+        sudo wget ${{ github.event.inputs.ova_url }}
+        sudo mv * downloaded.ova
+        
+    - name: Deploy ova to ESXi
+      run: |
         cd vmware-scripts/scripts
         python3 -m automated-deployment.src.VM_deploy_ova
+        sleep 5m
 
+#     - name: setup network
+#       run: |
+#         cd vmware-scripts/scripts
+#         python3 -m automated-deployment.src.network_configuration.VM_upload_file
+#         python3 -m automated-deployment.src.network_configuration.VM_execute_script
+
+  Configure-network:
+    if: github.event.inputs.Configure_Network == 'true'
+    runs-on: ubuntu-latest
+    needs: deploy-ova
+    steps:
+    - name: Checkout GW-Releases
+      uses: actions/checkout@v2
+      with:
+        submodules: true
+        
+    - name: Install k8-py-vmware
+      run: |
+        pwd
+        ls
+        cd ..
+        pwd
+        echo "Python version: $(python3 --version)"
+        sudo apt-get install python3-setuptools
+        sudo pip3 install wheel
+        git clone https://github.com/k8-proxy/k8-py-vmware.git
+        cd k8-py-vmware
+        sudo pip3 install -r requirements.txt
+        sudo pip3 install -e .
+        echo "pip libraries installed"
+        pip3 list
+
+    - name: Install dependencies
+      run: |
+        cd vmware-scripts/scripts/automated-deployment
+        pip3 install -r requirements.txt
+        echo "completed installing dependancies!!"
+
+    - name: setup network
+      run: |
+        cd vmware-scripts/scripts
+        python3 -m automated-deployment.src.network_configuration.VM_upload_file
+        python3 -m automated-deployment.src.network_configuration.VM_execute_script
