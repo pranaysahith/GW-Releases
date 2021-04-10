@@ -160,3 +160,18 @@ Download [File Drop OVA]()
 
 ![image](https://user-images.githubusercontent.com/58347752/111388167-7f6e3c00-86b7-11eb-863c-0fc8a1668cf4.png) ![image](https://user-images.githubusercontent.com/58347752/111388220-914fdf00-86b7-11eb-9c79-71e20c7c5e22.png)
 
+## GW Cloud SDK (CS-API K8_ICAP) Workflow
+
+* This workflow builds Cloud SDK (Integrating CS API into K8 ICAP Ubuntu) AMI and deploys to Playground account
+* Prerequisites (mandatory): 
+  * Run the workflow from `cs-api-k8icap` branch.
+  * ICAP-infrastructe branch to be used : Contains latest stable changes for K8-ICAP :  Default : `k8-main`
+  * Sow icap-infrastructure branch to be used : Contains latest SOW changes of ICAP from filetrust - Default : `main`
+  * CS API Image : Latest public docker image containing CS-API code - Default : `llmsjraj/sample:latest` (To be updated with image from GW)
+
+* Manually trigger the workflow from github **Actions**, and provide the above prerequisites.
+
+![image](https://user-images.githubusercontent.com/17300331/114266359-903e7300-9a13-11eb-851a-18310b760cfc.png)
+![image](https://user-images.githubusercontent.com/17300331/114266380-a6e4ca00-9a13-11eb-928c-9cb4723ed8f8.png)
+
+
