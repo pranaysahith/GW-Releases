@@ -81,7 +81,7 @@ jobs:
         cp -r target/icap-server/* setup/
         cat > setup/env <<EOF
         DOCKER_USERNAME=${{ secrets.DOCKER_USERNAME }} 
-        DOCKER_PASSWORD=${{ secrets.DOCKER_PASSWORD }}
+        DOCKER_PASSWORD=${{ secrets.DOCKER_NEW_PASSWORD }}
         DOCKER_EMAIL=${{ secrets.DOCKER_EMAIL }}
         MONITORING_IP=${{ github.event.inputs.monitoring_ip }}
         MONITORING_USER=${{ secrets.MONITORING_USER }}
