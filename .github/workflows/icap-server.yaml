@@ -32,6 +32,10 @@ on:
         description: Install cs-k8s-api
         default: "false"
         required: true
+      cs_api_image:
+        description: cs-k8s-api docker image
+        default: "glasswallsolutions/cs-k8s-api:latest"
+        required: true
       install_filedrop_ui:
         description: Install filedrop UI, this will install cs-k8s-api too.
         default: "false"
@@ -93,11 +97,12 @@ jobs:
         ICAP_BRANCH=${{ github.event.inputs.icap_branch }}
         ICAP_SOW_BRANCH=${{ github.event.inputs.sow_branch }}
         INSTALL_CSAPI=${{ github.event.inputs.install_csapi }}
+        CS_API_IMAGE=${{ github.event.inputs.cs_api_image }}
         INSTALL_FILEDROP_UI=${{ github.event.inputs.install_filedrop_ui }}
         EOF
         sed -i 's/<vm_name>/icap-server/g' ova-export.json
         RANDOM_STR=${{ github.sha }}-${{ github.run_number }}
-        packer build -color=false -on-error=cleanup -var github_sha=$RANDOM_STR -var team_tag=k8 -var owner_tag=githubActions  -var vm_name=icap-server -var create_ova=${{ github.event.inputs.create_ova }} -var region=${{ env.AWS_DEFAULT_REGION }} -var extra_regions=${{ github.event.inputs.extra_regions }} -var aws_access_key=${{ secrets.AWS_ACCESS_KEY }} -var aws_secret_key=${{ secrets.AWS_SECRET_ACCESS_KEY }} -var elastic_host=${{ github.event.inputs.monitoring_ip }} -var elastic_port=9200 -var elastic_user=${{ secrets.MONITORING_USER }} -var elastic_password=${{ secrets.MONITORING_PASSWORD }} -var csapi=${{ github.event.inputs.install_csapi }} -var filedrop_ui=${{ github.event.inputs.install_filedrop_ui }}  aws-ami.json
+        packer build -color=false -on-error=cleanup -var github_sha=$RANDOM_STR -var team_tag=k8 -var owner_tag=githubActions  -var vm_name=icap-server -var create_ova=${{ github.event.inputs.create_ova }} -var region=${{ env.AWS_DEFAULT_REGION }} -var extra_regions=${{ github.event.inputs.extra_regions }} -var aws_access_key=${{ secrets.AWS_ACCESS_KEY }} -var aws_secret_key=${{ secrets.AWS_SECRET_ACCESS_KEY }} -var elastic_host=${{ github.event.inputs.monitoring_ip }} -var elastic_port=9200 -var elastic_user=${{ secrets.MONITORING_USER }} -var elastic_password=${{ secrets.MONITORING_PASSWORD }} -var cs_api=${{ github.event.inputs.install_csapi }} -var filedrop_ui=${{ github.event.inputs.install_filedrop_ui }}  aws-ami.json
   
   deploy-ami:
     runs-on: ubuntu-latest
