@@ -99,6 +99,7 @@ jobs:
         INSTALL_CSAPI=${{ github.event.inputs.install_csapi }}
         CS_API_IMAGE=${{ github.event.inputs.cs_api_image }}
         INSTALL_FILEDROP_UI=${{ github.event.inputs.install_filedrop_ui }}
+        CREATE_OVA=${{ github.event.inputs.create_ova }}
         EOF
         sed -i 's/<vm_name>/icap-server/g' ova-export.json
         RANDOM_STR=${{ github.sha }}-${{ github.run_number }}
