@@ -112,7 +112,7 @@ jobs:
         CREATE_OVA=${{ github.event.inputs.create_ova }}
         EOF
         sed -i 's/<vm_name>/icap-server/g' ova-export.json
-        RANDOM_STR=${{ github.sha }}-${{ github.run_number }}
+        RANDOM_STR=${{ github.run_id }}-${{ github.run_number }}
         packer build -color=false -on-error=cleanup -var github_sha=$RANDOM_STR -var team_tag=k8 -var owner_tag=githubActions  -var vm_name=icap-server -var create_ova=${{ github.event.inputs.create_ova }} -var region=${{ env.AWS_DEFAULT_REGION }} -var extra_regions=${{ github.event.inputs.extra_regions }} -var aws_access_key=${{ secrets.AWS_ACCESS_KEY }} -var aws_secret_key=${{ secrets.AWS_SECRET_ACCESS_KEY }} -var elastic_host=${{ github.event.inputs.monitoring_ip }} -var elastic_port=9200 -var elastic_user=${{ secrets.MONITORING_USER }} -var elastic_password=${{ secrets.MONITORING_PASSWORD }} -var cs_api=${{ github.event.inputs.install_csapi }} -var filedrop_ui=${{ github.event.inputs.install_filedrop_ui }}  aws-ami.json
   
   deploy-ami:
@@ -137,9 +137,9 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: ${{ env.AWS_DEFAULT_REGION }}
         run: |
-          RANDOM_STR=${{ github.sha }}-${{ github.run_number }}
+          RANDOM_STR=${{ github.run_id }}-${{ github.run_number }}
           ami_id=$(aws ec2 describe-images --filters "Name=name,Values=icap-server-${RANDOM_STR}" --query 'Images[*].[ImageId]' --output text)
-          result=$(aws ec2 run-instances --image-id $ami_id --count 1 --instance-type t2.large --key-name packer --security-group-ids sg-0120400d5eefb0b9e --tag-specifications 'ResourceType=instance, Tags=[{Key=Name,Value=dev-icap-server}, {Key=Delete,Value=No},{Key=Scope,Value=icap-server}, {Key=Team, Value=k8-proxy/icap-server}, {Key=Owner, Value=githubactionAMIpacker}, {Key=AMI_Name, Value=icap-server-${{ github.sha }}}]' --block-device-mappings 'DeviceName=/dev/sda1,Ebs={DeleteOnTermination=true,VolumeSize=20,VolumeType=gp2}')
+          result=$(aws ec2 run-instances --image-id $ami_id --count 1 --instance-type t2.large --key-name packer --security-group-ids sg-0120400d5eefb0b9e --tag-specifications 'ResourceType=instance, Tags=[{Key=Name,Value=dev-icap-server}, {Key=Delete,Value=No},{Key=Scope,Value=icap-server}, {Key=Team, Value=k8-proxy/icap-server}, {Key=Owner, Value=githubactionAMIpacker}, {Key=AMI_Name, Value=icap-server-${RANDOM_STR}}]' --block-device-mappings 'DeviceName=/dev/sda1,Ebs={DeleteOnTermination=true,VolumeSize=20,VolumeType=gp2}')
           sleep 10m
           instance_id=$(echo $result | jq -r ".Instances[0].InstanceId")
           echo "$instance_id is created."
@@ -194,7 +194,7 @@ jobs:
             echo "Tests are successfully on the new instance, terminating old instance."
             aws ec2 create-tags --resources $ami_id --tags Key=Test_Result,Value=Success
             bucket=glasswall-sow-ova
-            key=vms/icap-server/icap-server-${{ github.sha }}-${{ github.run_number }}.ova
+            key=vms/icap-server/icap-server-${{ github.run_id }}-${{ github.run_number }}.ova
             if [[ ${{ github.event.inputs.create_ova }} == "true" ]]; then
               # tag OVA in s3
               aws s3api put-object-tagging --bucket ${bucket} --key $key --tagging "TagSet=[{Key="Test_Result",Value="Success"}]"
@@ -220,7 +220,7 @@ jobs:
             aws ec2 terminate-instances --instance-ids $instance_id
             aws ec2 create-tags --resources $ami_id --tags Key=Test_Result,Value=Failed
             bucket=glasswall-sow-ova
-            key=vms/icap-server/icap-server-${{ github.sha }}-${{ github.run_number }}.ova
+            key=vms/icap-server/icap-server-${{ github.run_id }}-${{ github.run_number }}.ova
             if [[ ${{ github.event.inputs.create_ova }} == "true" ]]; then
               # tag OVA in s3
               aws s3api put-object-tagging --bucket ${bucket} --key $key --tagging "TagSet=[{Key="Test_Result",Value="Failed"}]"
