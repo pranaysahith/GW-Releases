@@ -171,7 +171,14 @@ jobs:
           chmod +x ./pyCheck.py
           ./pyCheck.py
           test_result=$?
-          if [[ $test_result -ne 0 ]];then
+          api_result=0
+          install_csapi=${{ github.event.inputs.install_csapi }}
+          install_filedrop_ui=${{ github.event.inputs.install_filedrop_ui }}
+          if [[ "$install_csapi" == "true" || "$install_filedrop_ui" == "true" ]]; then
+            curl http://$instance_ip:8080/api/health
+            api_result=$?
+          fi
+          if [[ $test_result -ne 0 || $api_result -ne 0 ]];then
             echo ::set-output name=test_result::$test_result
           else
             echo "Tests are successfully on the new instance, terminating old instance."
