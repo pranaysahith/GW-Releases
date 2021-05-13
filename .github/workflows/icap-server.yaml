@@ -67,7 +67,7 @@ jobs:
       with:
         submodules: true
 
-    - name: show workflow inputs
+    - name: Show workflow inputs
       run: |
         echo MONITORING_IP=${{ github.event.inputs.monitoring_ip }}
         echo ICAP_BRANCH=${{ github.event.inputs.icap_branch }}
