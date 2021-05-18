@@ -74,6 +74,7 @@ jobs:
 
     - name: Show workflow inputs
       run: |
+        echo BRANCH=${{ github.ref }}
         echo MONITORING_IP=${{ github.event.inputs.monitoring_ip }}
         echo ICAP_BRANCH=${{ github.event.inputs.icap_branch }}
         echo ICAP_SOW_BRANCH=${{ github.event.inputs.sow_branch }}
