@@ -20,13 +20,9 @@ on:
         description: Extra regions where AMI should be published. Pass multiple regions with comma separated.
         default: eu-west-1,eu-west-2,eu-west-3,us-east-2,us-east-1,us-west-1
         required: false
-      monitoring_ip:
-        description: IP address of Monitoring server
-        default: 52.30.24.9
-        required: true
-      create_ova:
-        description: Create OVA
-        default: "true"
+      icap_flavour:
+        description: classic vs golang (GoLang and minio based)
+        default: classic
         required: true
       install_csapi:
         description: Install cs-k8s-api
@@ -40,6 +36,15 @@ on:
         description: Install filedrop UI, this will install cs-k8s-api too.
         default: "false"
         required: true
+      monitoring_ip:
+        description: IP address of Monitoring server
+        default: 52.30.24.9
+        required: true
+      create_ova:
+        description: Create OVA
+        default: "true"
+        required: true
+      
   push:
     branches: [ main ]
     paths-ignore:
@@ -76,6 +81,7 @@ jobs:
         echo CS_API_IMAGE=${{ github.event.inputs.cs_api_image }}
         echo INSTALL_FILEDROP_UI=${{ github.event.inputs.install_filedrop_ui }}
         echo CREATE_OVA=${{ github.event.inputs.create_ova }}
+        echo ICAP_FLAVOUR=${{ github.event.inputs.icap_flavour }}
 
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v1
@@ -96,6 +102,8 @@ jobs:
       run: |
         cd vmware-scripts/packer
         cp -r target/icap-server/* setup/
+        icap_flavour=${{ github.event.inputs.icap_flavour }}
+        icap_flavour=${icap_flavour:-classic}
         cat > setup/env <<EOF
         DOCKER_USERNAME=${{ secrets.DOCKER_USERNAME }} 
         DOCKER_PASSWORD=${{ secrets.DOCKER_NEW_PASSWORD }}
@@ -106,6 +114,10 @@ jobs:
         SSH_PASSWORD=${{ secrets.ICAP_SSH_PASSWORD }}
         ICAP_BRANCH=${{ github.event.inputs.icap_branch }}
         ICAP_SOW_BRANCH=${{ github.event.inputs.sow_branch }}
+        ICAP_FLAVOUR=$icap_flavour
+        MINIO_SECRET=${{ secrets.MINIO_SECRET }}
+        TRANSACTIONS_SECRET=${{ secrets.TRANSACTIONS_SECRET }}
+        RABBIT_SECRET=${{ secrets.RABBIT_SECRET }}
         INSTALL_CSAPI=${{ github.event.inputs.install_csapi }}
         CS_API_IMAGE=${{ github.event.inputs.cs_api_image }}
         INSTALL_FILEDROP_UI=${{ github.event.inputs.install_filedrop_ui }}
