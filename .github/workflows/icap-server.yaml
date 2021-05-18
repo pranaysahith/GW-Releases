@@ -36,10 +36,6 @@ on:
         description: Install filedrop UI, this will install cs-k8s-api too.
         default: "false"
         required: true
-      monitoring_ip:
-        description: IP address of Monitoring server
-        default: 52.30.24.9
-        required: true
       create_ova:
         description: Create OVA
         default: "true"
@@ -75,7 +71,6 @@ jobs:
     - name: Show workflow inputs
       run: |
         echo BRANCH=${{ github.ref }}
-        echo MONITORING_IP=${{ github.event.inputs.monitoring_ip }}
         echo ICAP_BRANCH=${{ github.event.inputs.icap_branch }}
         echo ICAP_SOW_BRANCH=${{ github.event.inputs.sow_branch }}
         echo INSTALL_CSAPI=${{ github.event.inputs.install_csapi }}
@@ -109,9 +104,6 @@ jobs:
         DOCKER_USERNAME=${{ secrets.DOCKER_USERNAME }} 
         DOCKER_PASSWORD=${{ secrets.DOCKER_NEW_PASSWORD }}
         DOCKER_EMAIL=${{ secrets.DOCKER_EMAIL }}
-        MONITORING_IP=${{ github.event.inputs.monitoring_ip }}
-        MONITORING_USER=${{ secrets.MONITORING_USER }}
-        MONITORING_PASSWORD=${{ secrets.MONITORING_PASSWORD }}
         SSH_PASSWORD=${{ secrets.ICAP_SSH_PASSWORD }}
         ICAP_BRANCH=${{ github.event.inputs.icap_branch }}
         ICAP_SOW_BRANCH=${{ github.event.inputs.sow_branch }}
@@ -126,7 +118,7 @@ jobs:
         EOF
         sed -i 's/<vm_name>/icap-server/g' ova-export.json
         RANDOM_STR=${{ github.run_id }}-${{ github.run_number }}
-        packer build -color=false -on-error=cleanup -var github_sha=$RANDOM_STR -var team_tag=k8 -var owner_tag=githubActions  -var vm_name=icap-server -var create_ova=${{ github.event.inputs.create_ova }} -var region=${{ env.AWS_DEFAULT_REGION }} -var extra_regions=${{ github.event.inputs.extra_regions }} -var aws_access_key=${{ secrets.AWS_ACCESS_KEY }} -var aws_secret_key=${{ secrets.AWS_SECRET_ACCESS_KEY }} -var elastic_host=${{ github.event.inputs.monitoring_ip }} -var elastic_port=9200 -var elastic_user=${{ secrets.MONITORING_USER }} -var elastic_password=${{ secrets.MONITORING_PASSWORD }} -var cs_api=${{ github.event.inputs.install_csapi }} -var filedrop_ui=${{ github.event.inputs.install_filedrop_ui }} -var icap_flavour=$icap_flavour aws-ami.json
+        packer build -color=false -on-error=cleanup -var github_sha=$RANDOM_STR -var team_tag=k8 -var owner_tag=githubActions  -var vm_name=icap-server -var create_ova=${{ github.event.inputs.create_ova }} -var region=${{ env.AWS_DEFAULT_REGION }} -var extra_regions=${{ github.event.inputs.extra_regions }} -var aws_access_key=${{ secrets.AWS_ACCESS_KEY }} -var aws_secret_key=${{ secrets.AWS_SECRET_ACCESS_KEY }} -var cs_api=${{ github.event.inputs.install_csapi }} -var filedrop_ui=${{ github.event.inputs.install_filedrop_ui }} -var icap_flavour=$icap_flavour aws-ami.json
   
   deploy-ami:
     runs-on: ubuntu-latest
