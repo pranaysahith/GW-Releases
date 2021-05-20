@@ -38,7 +38,7 @@ on:
         required: true
       create_ova:
         description: Create OVA
-        default: "true"
+        default: "false"
         required: true
       
   push:
