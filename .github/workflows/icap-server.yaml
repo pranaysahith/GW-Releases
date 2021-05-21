@@ -24,6 +24,10 @@ on:
         description: classic vs golang (GoLang and minio based)
         default: classic
         required: true
+      install_m_ui:
+        description: Management UI Required
+        default: "true"
+        required: true
       install_csapi:
         description: Install cs-k8s-api
         default: "false"
@@ -78,6 +82,7 @@ jobs:
         echo INSTALL_FILEDROP_UI=${{ github.event.inputs.install_filedrop_ui }}
         echo CREATE_OVA=${{ github.event.inputs.create_ova }}
         echo ICAP_FLAVOUR=${{ github.event.inputs.icap_flavour }}
+        echo INSTALL_M_UI=${{ github.event.inputs.install_m_ui }}
 
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v1
@@ -100,6 +105,10 @@ jobs:
         cp -r target/icap-server/* setup/
         icap_flavour=${{ github.event.inputs.icap_flavour }}
         icap_flavour=${icap_flavour:-classic}
+        install_csapi=${{ github.event.inputs.install_csapi }}
+        if [[ "${{ github.event.inputs.install_filedrop_ui }}" == "true" ]]; then
+          install_csapi="true"
+        fi
         cat > setup/env <<EOF
         DOCKER_USERNAME=${{ secrets.DOCKER_USERNAME }} 
         DOCKER_PASSWORD=${{ secrets.DOCKER_NEW_PASSWORD }}
@@ -111,10 +120,11 @@ jobs:
         MINIO_SECRET=${{ secrets.MINIO_SECRET }}
         TRANSACTIONS_SECRET=${{ secrets.TRANSACTIONS_SECRET }}
         RABBIT_SECRET=${{ secrets.RABBIT_SECRET }}
-        INSTALL_CSAPI=${{ github.event.inputs.install_csapi }}
+        INSTALL_CSAPI=${install_csapi}
         CS_API_IMAGE=${{ github.event.inputs.cs_api_image }}
         INSTALL_FILEDROP_UI=${{ github.event.inputs.install_filedrop_ui }}
         CREATE_OVA=${{ github.event.inputs.create_ova }}
+        INSTALL_M_UI=${{ github.event.inputs.install_m_ui }}
         EOF
         sed -i 's/<vm_name>/icap-server/g' ova-export.json
         RANDOM_STR=${{ github.run_id }}-${{ github.run_number }}
