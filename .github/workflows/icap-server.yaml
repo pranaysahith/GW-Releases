@@ -212,7 +212,11 @@ jobs:
             key=vms/icap-server/icap-server-${{ github.run_id }}-${{ github.run_number }}.ova
             if [[ ${{ github.event.inputs.create_ova }} == "true" ]]; then
               # tag OVA in s3
-              aws s3api put-object-tagging --bucket ${bucket} --key $key --tagging "TagSet=[{Key="Test_Result",Value="Success"}]"
+              FILEDROP_UI=${{ github.event.inputs.install_filedrop_ui }}
+              CS_API=${{ github.event.inputs.install_csapi }}
+              ICAP_FLAVOUR=${{ github.event.inputs.icap_flavour }}
+              INSTALL_M_UI=${{ github.event.inputs.install_m_ui }}
+              aws s3api put-object-tagging --bucket ${bucket} --key $key --tagging "TagSet=[{Key='Test_Result',Value='Success'},{Key='Filedrop_UI',Value=${FILEDROP_UI}},{Key='K8S_Flavor',Value='K3S'},{Key='CS_K8S_API',Value=${CS_API}},{Key='ICAP_FLAVOUR',Value=${ICAP_FLAVOUR}},{Key='M_UI',Value=${INSTALL_M_UI}}]"
             fi
             instance_id="${{ steps.get_id.outputs.instance_id }}"
             if [[ ! -z "$instance_id" ]]; then
@@ -238,7 +242,11 @@ jobs:
             key=vms/icap-server/icap-server-${{ github.run_id }}-${{ github.run_number }}.ova
             if [[ ${{ github.event.inputs.create_ova }} == "true" ]]; then
               # tag OVA in s3
-              aws s3api put-object-tagging --bucket ${bucket} --key $key --tagging "TagSet=[{Key="Test_Result",Value="Failed"}]"
+              FILEDROP_UI=${{ github.event.inputs.install_filedrop_ui }}
+              CS_API=${{ github.event.inputs.install_csapi }}
+              ICAP_FLAVOUR=${{ github.event.inputs.icap_flavour }}
+              INSTALL_M_UI=${{ github.event.inputs.install_m_ui }}
+              aws s3api put-object-tagging --bucket ${bucket} --key $key --tagging "TagSet=[{Key='Test_Result',Value='Failed'},{Key='Filedrop_UI',Value=${FILEDROP_UI}},{Key='K8S_Flavor',Value='K3S'},{Key='CS_K8S_API',Value=${CS_API}},{Key='ICAP_FLAVOUR',Value=${ICAP_FLAVOUR}},{Key='M_UI',Value=${INSTALL_M_UI}}]"
             fi
 
           fi
