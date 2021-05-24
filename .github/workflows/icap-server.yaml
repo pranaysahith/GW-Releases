@@ -10,7 +10,7 @@ on:
     inputs:
       icap_branch:
         description: icap-infrastructe branch to be used
-        default: k8-develop
+        default: k8-main
         required: false
       extra_regions:
         description: Extra regions where AMI should be published. Pass multiple regions with comma separated.
