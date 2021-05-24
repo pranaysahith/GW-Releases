@@ -12,10 +12,6 @@ on:
         description: icap-infrastructe branch to be used
         default: k8-develop
         required: false
-      sow_branch:
-        description: sow icap-infrastructure branch to be used
-        default: main
-        required: false
       extra_regions:
         description: Extra regions where AMI should be published. Pass multiple regions with comma separated.
         default: eu-west-1,eu-west-2,eu-west-3,us-east-2,us-east-1,us-west-1
@@ -76,7 +72,6 @@ jobs:
       run: |
         echo BRANCH=${{ github.ref }}
         echo ICAP_BRANCH=${{ github.event.inputs.icap_branch }}
-        echo ICAP_SOW_BRANCH=${{ github.event.inputs.sow_branch }}
         echo INSTALL_CSAPI=${{ github.event.inputs.install_csapi }}
         echo CS_API_IMAGE=${{ github.event.inputs.cs_api_image }}
         echo INSTALL_FILEDROP_UI=${{ github.event.inputs.install_filedrop_ui }}
@@ -115,7 +110,6 @@ jobs:
         DOCKER_EMAIL=${{ secrets.DOCKER_EMAIL }}
         SSH_PASSWORD=${{ secrets.ICAP_SSH_PASSWORD }}
         ICAP_BRANCH=${{ github.event.inputs.icap_branch }}
-        ICAP_SOW_BRANCH=${{ github.event.inputs.sow_branch }}
         ICAP_FLAVOUR=$icap_flavour
         MINIO_SECRET=${{ secrets.MINIO_SECRET }}
         TRANSACTIONS_SECRET=${{ secrets.TRANSACTIONS_SECRET }}
