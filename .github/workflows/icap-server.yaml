@@ -29,7 +29,7 @@ on:
         default: "true"
         required: true
       install_csapi:
-        description: Install cs-k8s-api
+        description: Install GW Cloud REST API
         default: "false"
         required: true
       cs_api_image:
