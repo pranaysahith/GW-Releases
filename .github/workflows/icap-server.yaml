@@ -22,7 +22,7 @@ on:
         required: true
       install_m_ui:
         description: Management UI Required
-        default: "true"
+        default: "false"
         required: true
       install_csapi:
         description: Install GW Cloud REST API
