@@ -22,7 +22,7 @@ on:
         required: true
       install_m_ui:
         description: Management UI Required
-        default: "true"
+        default: "false"
         required: true
       install_csapi:
         description: Install GW Cloud REST API
@@ -41,20 +41,6 @@ on:
         default: "false"
         required: true
       
-  push:
-    branches: [ main ]
-    paths-ignore:
-      - 'aws-jmeter-test-engine'
-      - 'gp-load-balancer'
-      - 'GW-proxy'
-      - 's-k8-proxy-rebuild'
-      - 'k8-rebuild'
-      - '.github/workflows/k8-rebuild.yaml'
-      - '.github/workflows/monitoring.yaml'
-      - '.github/workflows/proxy-rebuild.yaml'
-      - '.github/workflows/haproxy.yaml'
-      - '.github/workflows/proxy-rebuild-ova.yaml'
-
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
   build-ami:
@@ -148,7 +134,7 @@ jobs:
         run: |
           RANDOM_STR=${{ github.run_id }}-${{ github.run_number }}
           ami_id=$(aws ec2 describe-images --filters "Name=name,Values=icap-server-${RANDOM_STR}" --query 'Images[*].[ImageId]' --output text)
-          result=$(aws ec2 run-instances --image-id $ami_id --count 1 --instance-type t2.xlarge --key-name packer --security-group-ids sg-0120400d5eefb0b9e --tag-specifications "ResourceType=instance, Tags=[{Key=Name,Value=dev-icap-server}, {Key=Delete,Value=No},{Key=Scope,Value=icap-server}, {Key=Team, Value=k8-proxy/icap-server}, {Key=Owner, Value=githubactionAMIpacker}, {Key=AMI_Name, Value=icap-server-${RANDOM_STR}}]" --block-device-mappings 'DeviceName=/dev/sda1,Ebs={DeleteOnTermination=true,VolumeSize=20,VolumeType=gp2}')
+          result=$(aws ec2 run-instances --image-id $ami_id --count 1 --instance-type t2.xlarge --key-name packer --security-group-ids sg-0120400d5eefb0b9e --tag-specifications "ResourceType=instance, Tags=[{Key=Name,Value=dev-icap-server}, {Key=Delete,Value=No},{Key=Scope,Value=icap-server}, {Key=Team, Value=k8-proxy/icap-server}, {Key=Owner, Value=githubactionAMIpacker}, {Key=AMI_Name, Value=icap-server-${RANDOM_STR}}]" --block-device-mappings 'DeviceName=/dev/sda1,Ebs={DeleteOnTermination=true,VolumeSize=20,VolumeType=gp2}' --instance-market-options 'MarketType=spot,SpotOptions={SpotInstanceType=one-time}')
           sleep 8m
           instance_id=$(echo $result | jq -r ".Instances[0].InstanceId")
           echo "$instance_id is created."
