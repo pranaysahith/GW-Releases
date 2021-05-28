@@ -103,6 +103,14 @@ Create OVA - true or false
     - Run [healthcheck tests](https://github.com/k8-proxy/vmware-scripts/tree/f129ec357284c61206edf36415b1b2ba403bff95/HealthCheck) on the instance
         - if tests are successful for current instance, all previous instances are terminated
         - if tests are failed, current instance is terminated and deleted
+- Use workflow inputs to customize the AMI/OVA build:
+  - icap_branch: Pass the k8-proxy/icap-infrastructure repository branch to be used. This repo has the helm charts for ICAP server. If not sure, use the default branch `k8-main`
+  - extra_regions: If the AMI is needed in AWS region(s) other than `eu-west-1` pass the regions in comma separated format.
+  - icap_flavour: `classic` deploys original icap implementation and `golang` deploys GoLang based services along with minio.
+  - install_csapi: Pass `true` to install Glasswall Cloud Rebuild API.
+  - cs_api_image: Docker image of Glasswall CLoud Rebuild API. Use default `glasswallsolutions/cs-k8s-api:latest` if not sure.
+  - install_filedrop_ui: Pass `true` to install Filedrop website. Installing Filedrop also installs Glasswall Cloud Rebuild API
+  - create_ova: Pass `true` if OVA is needed.
 
 #### CK8 ICAP Server Workflow
 
