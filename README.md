@@ -78,7 +78,15 @@ Download [File Drop OVA]()
 
 ### ICAP Server Workflow
 - K3s ICAP - [YAML File](https://github.com/k8-proxy/GW-Releases/blob/main/.github/workflows/icap-server.yaml) 
+
+![image](https://user-images.githubusercontent.com/17300331/119994330-22adcc80-bfea-11eb-9b57-15c176882277.png)
+
+
 - CK8 ICAP - [YAMl File](https://github.com/k8-proxy/k8s-compliant-kubernetes/actions/workflows/complaint-k8s-CloudSDK.yaml)
+
+![image](https://user-images.githubusercontent.com/17300331/119994452-3e18d780-bfea-11eb-85c5-151d1bbc4272.png)
+
+
 #### K3s ICAP Server Workflow
 
 Below inputs are to be supplied for K3s based ICAP server workflow
@@ -183,18 +191,5 @@ All secrets specfic to Service cluster will be uploaded to  s3 bucket: `glasswal
 
 ![image](https://user-images.githubusercontent.com/58347752/111388167-7f6e3c00-86b7-11eb-863c-0fc8a1668cf4.png) ![image](https://user-images.githubusercontent.com/58347752/111388220-914fdf00-86b7-11eb-9c79-71e20c7c5e22.png)
 
-## GW Cloud SDK (CS-API K8_ICAP) Workflow
-
-* This workflow builds Cloud SDK (Integrating CS API into K8 ICAP Ubuntu) AMI and deploys to Playground account
-* Prerequisites (mandatory): 
-  * Run the workflow from `cs-api-k8icap` branch.
-  * ICAP-infrastructe branch to be used : Contains latest stable changes for K8-ICAP :  Default : `k8-main`
-  * Sow icap-infrastructure branch to be used : Contains latest SOW changes of ICAP from filetrust - Default : `main`
-  * CS API Image : Latest public docker image containing CS-API code - Default : `llmsjraj/sample:latest` (To be updated with image from GW)
-
-* Manually trigger the workflow from github **Actions**, and provide the above prerequisites.
-
-![image](https://user-images.githubusercontent.com/17300331/114266359-903e7300-9a13-11eb-851a-18310b760cfc.png)
-![image](https://user-images.githubusercontent.com/17300331/114266380-a6e4ca00-9a13-11eb-928c-9cb4723ed8f8.png)
 
 
