@@ -25,19 +25,6 @@
 - [traffic-generator](https://github.com/k8-proxy/aws-jmeter-test-engine)
 - [GW-proxy](https://github.com/k8-proxy/GW-proxy)
 
-## ICAP Server
-
-Download [ICAP Server OVA]()
--  ICAP Server AMI on AWS: 
-   ```
-   ID: ami-0f4fd267f91db16c8
-   Owner: 785217600689
-   Region: eu-west-1/Ireland
-   ```
-- Live instances running:
-   ```
-   AWS: http://54.171.157.189:31829/
-   ```
 ## File Drop
 Download [File Drop OVA]()
 - File Drop AMI on AWS:
@@ -81,10 +68,6 @@ Download [File Drop OVA]()
     ![deploy-ami](imgs/deploy-ami.png)
 
 ### Workflow Requirements
-    - icap-server
-        - branch to use workflow from
-        - AWS region(s) where AMI will be created
-        - IP of monitoring server
     - proxy-rebuild
         - branch to use workflow from
         - ICAP server IP
@@ -94,7 +77,22 @@ Download [File Drop OVA]()
         - branch to use workflow from
 
 ### ICAP Server Workflow
-- [YAML File](https://github.com/k8-proxy/GW-Releases/blob/main/.github/workflows/icap-server.yaml) 
+- K3s ICAP - [YAML File](https://github.com/k8-proxy/GW-Releases/blob/main/.github/workflows/icap-server.yaml) 
+- CK8 ICAP - [YAMl File](https://github.com/k8-proxy/k8s-compliant-kubernetes/actions/workflows/complaint-k8s-CloudSDK.yaml)
+#### K3s ICAP Server Workflow
+
+Below inputs are to be supplied for K3s based ICAP server workflow
+```
+icap-infrastructe branch to be used - k8-main
+Extra regions where AMI should be published. Pass multiple regions with comma separated. - eu-west-1
+classic vs golang (GoLang and minio based) - Golang version uses minio based golang implementation
+Management UI Required - true or false
+Install GW Cloud REST API - true or false
+cs-k8s-api docker image - glasswallsolutions/cs-k8s-api:latest
+Install filedrop UI, this will install cs-k8s-api too - true or false
+Create OVA - true or false
+```
+
 - build AMI
     - Configure AWS credentials
     - Setup [Packer](https://github.com/k8-proxy/vmware-scripts/tree/main/packer)
@@ -105,6 +103,23 @@ Download [File Drop OVA]()
     - Run [healthcheck tests](https://github.com/k8-proxy/vmware-scripts/tree/f129ec357284c61206edf36415b1b2ba403bff95/HealthCheck) on the instance
         - if tests are successful for current instance, all previous instances are terminated
         - if tests are failed, current instance is terminated and deleted
+
+#### CK8 ICAP Server Workflow
+
+Workflow [YAMl File](https://github.com/k8-proxy/k8s-compliant-kubernetes/actions/workflows/complaint-k8s-CloudSDK.yaml)
+
+```
+classic vs golang (GoLang and minio based) - Golang version uses minio based golang implementation
+Management UI Required - true or false
+Install GW Cloud REST API - true or false
+GW Cloud REST (cs-k8s-api) API docker image - glasswallsolutions/cs-k8s-api:latest
+Install filedrop UI, this will install GW Cloud REST API too - true or false
+Create Workload Cluster - true or false
+Create Service Cluster - true or false
+Create OVA - true or false
+```
+
+All secrets specfic to Service cluster will be uploaded to  s3 bucket: `glasswall-dev-sc-logs`
 
 ### K8 Rebuild Workflow
 - [YAML File](https://github.com/k8-proxy/GW-Releases/blob/main/.github/workflows/k8-rebuild.yaml)
