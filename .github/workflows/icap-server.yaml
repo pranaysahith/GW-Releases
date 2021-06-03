@@ -90,6 +90,11 @@ jobs:
         if [[ "${{ github.event.inputs.install_filedrop_ui }}" == "true" ]]; then
           install_csapi="true"
         fi
+        if "${GITHUB_REF#refs/heads/}" == "develop"; then
+          GO_INFRA_BRANCH=develop
+        else
+          GO_INFRA_BRANCH=main
+        fi
         cat > setup/env <<EOF
         DOCKER_USERNAME=${{ secrets.DOCKER_USERNAME }} 
         DOCKER_PASSWORD=${{ secrets.DOCKER_NEW_PASSWORD }}
@@ -105,6 +110,7 @@ jobs:
         INSTALL_FILEDROP_UI=${{ github.event.inputs.install_filedrop_ui }}
         CREATE_OVA=${{ github.event.inputs.create_ova }}
         INSTALL_M_UI=${{ github.event.inputs.install_m_ui }}
+        GO_INFRA_BRANCH=$GO_INFRA_BRANCH
         EOF
         sed -i 's/<vm_name>/icap-server/g' ova-export.json
         RANDOM_STR=${{ github.run_id }}-${{ github.run_number }}
