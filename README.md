@@ -44,52 +44,54 @@ Download [File Drop OVA]()
     - [icap-server](https://github.com/k8-proxy/GW-Releases/actions?query=workflow%3Aicap-server)
     - [proxy-rebuild](https://github.com/k8-proxy/GW-Releases/actions?query=workflow%3Aproxy-rebuild)
     - [k8-rebuild](https://github.com/k8-proxy/GW-Releases/actions?query=workflow%3Ak8-rebuild)
-- Each commit made to the main branch triggers the workflow, but the following directories are ignored:
-    - aws-jmeter-test-engine
-    - gp-load-balancer
-    - GW-proxy
-    - s-k8-proxy-rebuild
-    - k8-rebuild
-    - .github/workflows/k8-rebuild.yaml
+
+- Each commit made to the main branch triggers the workflow, except for the directories under the `paths-ignore` variable in the following workflows:
+    - [haproxy.yaml](https://github.com/k8-proxy/GW-Releases/blob/main/.github/workflows/haproxy.yaml)
+    - [k8-rebuild.yaml](https://github.com/k8-proxy/GW-Releases/blob/main/.github/workflows/k8-rebuild.yaml)
+    - [monitoring.yaml](https://github.com/k8-proxy/GW-Releases/blob/main/.github/workflows/monitoring.yaml)
+    - [proxy-rebuild-ova.yaml](https://github.com/k8-proxy/GW-Releases/blob/main/.github/workflows/proxy-rebuild-ova.yaml)
+    - [proxy-rebuild.yaml](https://github.com/k8-proxy/GW-Releases/blob/main/.github/workflows/proxy-rebuild.yaml)
+    - [visualization.yml](https://github.com/k8-proxy/GW-Releases/blob/main/.github/workflows/visualization.yml)
+
 - There are 2 main jobs for each workflow:
-    - build-ami
+
+    - build AMI
         - Configure AWS credentials
-        - Setup Packer
-        - Build AMI 
+        - Setup [Packer](https://github.com/k8-proxy/vmware-scripts/tree/main/packer)
+        - Build AMI using Packer 
 
-    ![build-ami](imgs/build-ami.png)
-    
-    - deploy-ami
-        - Get current instance ID
-        - Deploy AMI to dev
-        - Run tests on instance
-        - Delete instance(s) that fail
+        ![build-ami](imgs/build-ami.png)
 
-    ![deploy-ami](imgs/deploy-ami.png)
+    - deploy AMI
+        - Get current instance ID and other instance IDs with the same name as current instance
+        - Deploy the instance
+        - Run [healthcheck tests](https://github.com/k8-proxy/vmware-scripts/tree/f129ec357284c61206edf36415b1b2ba403bff95/HealthCheck) on the instance
+            - if tests are successful for current instance, all previous instances are terminated
+            - if tests are failed, current instance is terminated and deleted
 
-### Workflow Requirements
-    - proxy-rebuild
-        - branch to use workflow from
-        - ICAP server IP
-        - AWS region(s) where AMI will be created
-        - IP of monitoring server
-    - k8-rebuild
-        - branch to use workflow from
+        ![deploy-ami](imgs/deploy-ami.png)
+
+
 
 ### ICAP Server Workflow
 - K3s ICAP - [YAML File](https://github.com/k8-proxy/GW-Releases/blob/main/.github/workflows/icap-server.yaml) 
 
-![image](https://user-images.githubusercontent.com/17300331/119994330-22adcc80-bfea-11eb-9b57-15c176882277.png)
+    - **Worflow Requirements**
+
+         ![image](https://user-images.githubusercontent.com/17300331/119994330-22adcc80-bfea-11eb-9b57-15c176882277.png)
 
 
-- CK8 ICAP - [YAMl File](https://github.com/k8-proxy/k8s-compliant-kubernetes/actions/workflows/complaint-k8s-CloudSDK.yaml)
+- CK8 ICAP - [YAML File](https://github.com/k8-proxy/k8s-compliant-kubernetes/actions/workflows/complaint-k8s-CloudSDK.yaml)
 
-![image](https://user-images.githubusercontent.com/17300331/119994452-3e18d780-bfea-11eb-85c5-151d1bbc4272.png)
+    - **Worflow Requirements**
+
+        ![image](https://user-images.githubusercontent.com/17300331/119994452-3e18d780-bfea-11eb-85c5-151d1bbc4272.png)
 
 
 #### K3s ICAP Server Workflow
 
 Below inputs are to be supplied for K3s based ICAP server workflow
+
 ```
 icap-infrastructe branch to be used - k8-main
 Extra regions where AMI should be published. Pass multiple regions with comma separated. - eu-west-1
@@ -101,16 +103,6 @@ Install filedrop UI, this will install cs-k8s-api too - true or false
 Create OVA - true or false
 ```
 
-- build AMI
-    - Configure AWS credentials
-    - Setup [Packer](https://github.com/k8-proxy/vmware-scripts/tree/main/packer)
-    - Build AMI using Packer 
-- deploy AMI
-    - Get current instance ID and other instance IDs with the same name as current instance
-    - Deploy the instance
-    - Run [healthcheck tests](https://github.com/k8-proxy/vmware-scripts/tree/f129ec357284c61206edf36415b1b2ba403bff95/HealthCheck) on the instance
-        - if tests are successful for current instance, all previous instances are terminated
-        - if tests are failed, current instance is terminated and deleted
 - Use workflow inputs to customize the AMI/OVA build:
   - icap_branch: Pass the k8-proxy/icap-infrastructure repository branch to be used. This repo has the helm charts for ICAP server. If not sure, use the default branch `k8-main`
   - extra_regions: If the AMI is needed in AWS region(s) other than `eu-west-1` pass the regions in comma separated format.
@@ -122,7 +114,7 @@ Create OVA - true or false
 
 #### CK8 ICAP Server Workflow
 
-Workflow [YAMl File](https://github.com/k8-proxy/k8s-compliant-kubernetes/actions/workflows/complaint-k8s-CloudSDK.yaml)
+Workflow [YAML File](https://github.com/k8-proxy/k8s-compliant-kubernetes/actions/workflows/complaint-k8s-CloudSDK.yaml)
 
 ```
 classic vs golang (GoLang and minio based) - Golang version uses minio based golang implementation
@@ -139,22 +131,11 @@ All secrets specfic to Service cluster will be uploaded to  s3 bucket: `glasswal
 
 ### K8 Rebuild Workflow
 - [YAML File](https://github.com/k8-proxy/GW-Releases/blob/main/.github/workflows/k8-rebuild.yaml)
-- build AMI
-    - Configure AWS credentials
-    - Setup [Packer](https://github.com/k8-proxy/k8-rebuild/tree/f1ac7780d912daf033d3a801956dcb07b0164ac0/packer) 
-- deploy AMI
-    - Run [healthcheck tests](https://github.com/k8-proxy/vmware-scripts/tree/main/HealthFunctionalTests/filedrop) on the instance
-        - if tests are successful for current instance, all previous instances are terminated
-        - if tests are failed, current instance is terminated and deleted
+
 ### Proxy Rebuild Workflow
 - [YAML File](https://github.com/k8-proxy/GW-Releases/blob/main/.github/workflows/proxy-rebuild.yaml)
-- build AMI
-    - Configure AWS credentials
-    - Setup [Packer](https://github.com/k8-proxy/vmware-scripts/tree/main/packer)
-    - Build AMI using Packer 
-- deploy AMI
-    - Get current instance ID and other instance IDs with the same name as current instance
-    - Deploy the instance
+
+- deploy AMI (follows [workflow jobs](https://github.com/k8-proxy/GW-Releases/blob/main/README.md#workflows-brief) with an additional step)
     - Run tests on instance
         - Download this [PDF](https://glasswallsolutions.com/wp-content/uploads/2020/01/Glasswall-d-FIRST-Technology.pdf) file
         - Make sure it successfully has the watermark `"Glasswall Processed"`
