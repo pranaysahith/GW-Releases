@@ -26,7 +26,7 @@ on:
         required: true
       install_csapi:
         description: Install GW Cloud REST API
-        default: "false"
+        default: "true"
         required: true
       cs_api_image:
         description: cs-k8s-api docker image
