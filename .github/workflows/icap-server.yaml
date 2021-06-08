@@ -180,7 +180,7 @@ jobs:
           install_csapi=${{ github.event.inputs.install_csapi }}
           install_filedrop_ui=${{ github.event.inputs.install_filedrop_ui }}
           if [[ "$install_csapi" == "true" || "$install_filedrop_ui" == "true" ]]; then
-            curl http://$instance_ip:8080/api/health
+            curl http://$instance_ip/api/health
             api_result=$?
           fi
           if [[ $test_result -ne 0 || $api_result -ne 0 ]];then
