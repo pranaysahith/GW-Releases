@@ -114,7 +114,7 @@ jobs:
         packer build -color=false -on-error=cleanup -var github_sha=$RANDOM_STR -var team_tag=k8 -var owner_tag=githubActions  -var vm_name=icap-server -var create_ova=${{ github.event.inputs.create_ova }} -var region=${{ env.AWS_DEFAULT_REGION }} -var extra_regions=${{ github.event.inputs.extra_regions }} -var aws_access_key=${{ secrets.AWS_ACCESS_KEY }} -var aws_secret_key=${{ secrets.AWS_SECRET_ACCESS_KEY }} -var cs_api=${install_csapi} -var filedrop_ui=${{ github.event.inputs.install_filedrop_ui }} -var icap_flavour=$icap_flavour -var install_m_ui=${{ github.event.inputs.install_m_ui }} aws-ami.json
   
     - name: Build Prod AMI/OVA
-      if: ${{ env.RELEASE_BRANCH == "main" || github.ref == "refs/head/use_develop" }}
+      if: ${{ env.RELEASE_BRANCH == 'main' || github.ref == 'refs/head/use_develop' }}
       run: |
         cd vmware-scripts/packer
         cp -r target/icap-server/* setup/
@@ -233,7 +233,7 @@ jobs:
           fi
 
       - name: Tag prod Artifacts
-        if: ${{ (env.RELEASE_BRANCH == "main" || github.ref == "refs/head/use_develop") && steps.test.outputs.test_result == 0 }}
+        if: ${{ (env.RELEASE_BRANCH == 'main' || github.ref == 'refs/head/use_develop' }}) && steps.test.outputs.test_result == 0 }}
         run: |
           RANDOM_STR=${{ github.run_id }}-${{ github.run_number }}-prd
           ami_id=$(aws ec2 describe-images --filters "Name=name,Values=icap-server-${RANDOM_STR}" --query 'Images[*].[ImageId]' --output text)
