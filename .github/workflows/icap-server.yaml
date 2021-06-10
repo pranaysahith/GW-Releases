@@ -233,7 +233,7 @@ jobs:
           fi
 
       - name: Tag prod Artifacts
-        if: ${{ (env.RELEASE_BRANCH == 'main' || github.ref == 'refs/head/use_develop' }}) && steps.test.outputs.test_result == 0 }}
+        if: ${{ (env.RELEASE_BRANCH == 'main' || github.ref == 'refs/head/use_develop') && steps.test.outputs.test_result == 0 }}
         run: |
           RANDOM_STR=${{ github.run_id }}-${{ github.run_number }}-prd
           ami_id=$(aws ec2 describe-images --filters "Name=name,Values=icap-server-${RANDOM_STR}" --query 'Images[*].[ImageId]' --output text)
