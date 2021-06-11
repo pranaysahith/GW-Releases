@@ -94,9 +94,6 @@ jobs:
           install_csapi="true"
         fi
         cat > setup/env <<EOF
-        DOCKER_USERNAME=${{ secrets.DOCKER_USERNAME }} 
-        DOCKER_PASSWORD=${{ secrets.DOCKER_NEW_PASSWORD }}
-        DOCKER_EMAIL=${{ secrets.DOCKER_EMAIL }}
         SSH_PASSWORD=${{ secrets.ICAP_SSH_PASSWORD }}
         ICAP_BRANCH=${{ github.event.inputs.icap_branch }}
         ICAP_FLAVOUR=$icap_flavour
