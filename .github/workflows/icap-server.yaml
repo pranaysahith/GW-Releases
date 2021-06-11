@@ -155,8 +155,6 @@ jobs:
   deploy-ami:
     runs-on: ubuntu-latest
     needs: build-ami
-    env:
-      RELEASE_BRANCH: ${GITHUB_REF#refs/heads/}
     steps:
       - name: Download the artifacts
         uses: actions/download-artifact@v2
@@ -252,7 +250,8 @@ jobs:
               CS_API=${{ github.event.inputs.install_csapi }}
               ICAP_FLAVOUR=${{ github.event.inputs.icap_flavour }}
               INSTALL_M_UI=${{ github.event.inputs.install_m_ui }}
-              aws s3api put-object-tagging --bucket ${bucket} --key $key --tagging "TagSet=[{Key='Test_Result',Value='Success'},{Key='Filedrop_UI',Value=${FILEDROP_UI}},{Key='K8S_Flavor',Value='K3S'},{Key='CS_K8S_API',Value=${CS_API}},{Key='ICAP_FLAVOUR',Value=${ICAP_FLAVOUR}},{Key='M_UI',Value=${INSTALL_M_UI}},{Key='latest_tag',Value=${latest_tag}}]"
+              aws s3api put-object-tagging --bucket ${bucket} --key $key --tagging "TagSet=[{Key='Test_Result',Value='Success'},{Key='Filedrop_UI',Value=${FILEDROP_UI}},{Key='K8S_Flavor',Value='K3S'},{Key='CS_K8S_API',Value=${CS_API}},{Key='ICAP_FLAVOUR',Value=${ICAP_FLAVOUR}},{Key='M_UI',Value=${INSTALL_M_UI}},{Key='Release_Tag',Value=${latest_tag}}]"
+              echo ::set-output name=ova_path::s3://$bucket/$key
             fi
             instance_id="${{ steps.get_id.outputs.instance_id }}"
             if [[ ! -z "$instance_id" ]]; then
@@ -261,7 +260,8 @@ jobs:
           fi
 
       - name: Tag prod Artifacts
-        if: ${{ (env.RELEASE_BRANCH == 'main' || github.ref == 'refs/heads/use_develop') && steps.test.outputs.test_result == 0 }}
+        if: ${{ github.ref == 'refs/heads/main' && steps.test.outputs.test_result == 0 }}
+        id: prod
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -279,8 +279,33 @@ jobs:
             CS_API=${{ github.event.inputs.install_csapi }}
             ICAP_FLAVOUR=${{ github.event.inputs.icap_flavour }}
             INSTALL_M_UI=${{ github.event.inputs.install_m_ui }}
-            aws s3api put-object-tagging --bucket ${bucket} --key $key --tagging "TagSet=[{Key='Test_Result',Value='Success'},{Key='Filedrop_UI',Value=${FILEDROP_UI}},{Key='K8S_Flavor',Value='K3S'},{Key='CS_K8S_API',Value=${CS_API}},{Key='ICAP_FLAVOUR',Value=${ICAP_FLAVOUR}},{Key='M_UI',Value=${INSTALL_M_UI}},{Key='latest_tag',Value=${latest_tag}}]"
+            aws s3api put-object-tagging --bucket ${bucket} --key $key --tagging "TagSet=[{Key='Test_Result',Value='Success'},{Key='Filedrop_UI',Value=${FILEDROP_UI}},{Key='K8S_Flavor',Value='K3S'},{Key='CS_K8S_API',Value=${CS_API}},{Key='ICAP_FLAVOUR',Value=${ICAP_FLAVOUR}},{Key='M_UI',Value=${INSTALL_M_UI}},{Key='Release_Tag',Value=${latest_tag}}]"
+            echo ::set-output name=ova_path::s3://$bucket/$key
           fi
+          echo ::set-output name=ami_id::$ami_id
+                
+      - uses: actions/checkout@v2
+      - name: Update github tag with AMI/OVA
+        run: |
+          latest_tag=${{ steps.get_rel_tag.outputs.latest_tag }}
+          ami_id="${{ steps.deploy.outputs.ami_id }}"
+          new_desc="Eval AMI: $ami_id"
+          if [[ ${{ github.event.inputs.create_ova }} == "true" ]]; then
+            ova_path="${{ steps.deploy.outputs.ova_path }}"
+            new_desc="${new_desc} \nEval OVA: $ova_path"
+          fi
+          if [[ ${{ github.ref }} == 'refs/heads/main' ]]; then
+            prd_ami_id="${{ steps.prd.outputs.ami_id }}"
+            new_desc="${new_desc} \nProd AMI: $prd_ami_id"
+            if [[ ${{ github.event.inputs.create_ova }} == "true" ]]; then
+              prd_ova_path="${{ steps.prd.outputs.ova_path }}"
+              new_desc="${new_desc} \nProd OVA: $prd_ova_path"
+            fi
+          fi
+          tag_desc=$(git tag -l --format='%(contents)' $latest_tag)
+          printf "$tag_desc \n$new_desc"
+          git tag -m $latest_tag -m $tag_desc -m "$(echo $new_desc)" -f --edit $latest_tag
+          git push origin $latest_tag --force
 
       - name: Delete instance if tests fail
         if: ${{ failure() || steps.test.outputs.test_result != 0 }}
