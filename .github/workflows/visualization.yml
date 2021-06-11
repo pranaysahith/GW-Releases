@@ -1,0 +1,105 @@
+# This is a basic workflow to help you get started with Actions
+
+name: visualization
+
+# Controls when the action will run. 
+on:
+  push:
+    branches: [ main ]
+    paths-ignore:
+      - 'graph/*'
+  # Pattern matched against refs/tags
+    tags:        
+      - '*'           # Push events to every tag
+ # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  build-graph:
+    # The type of runner that the job will run on
+    runs-on: ubuntu-latest
+
+    # Steps represent a sequence of tasks that will be executed as part of the job
+    steps:
+    # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it  
+    - uses: actions/checkout@v2
+      with:
+        token: ${{secrets.GITHUBPAT}}
+        submodules: recursive           
+    - name: Set up Python 3.7
+      uses: actions/setup-python@v2
+      with:
+        python-version: 3.7
+    - name: Install dependencies
+      run: |
+        sudo apt-get install graphviz
+        pip install pydot    
+        pip install click 
+        pip install requests
+        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+        
+    - name: Update graph
+      run: |
+        git config user.name github-actions@github.com
+        git config user.email github-actions
+        git config --global http.postBuffer 1048576000
+
+        # Sync submodules
+        git remote -v
+        git submodule sync
+        git submodule update --init
+
+        # Copy script
+        mkdir ../tmp
+        cp scripts/submodule_visualization.py ../submodule_visualization.py
+
+        #list tags
+        git fetch --recurse-submodules=no
+        tags=$(git tag -l)
+        echo $tags
+
+        # Run script
+        python ../submodule_visualization.py ../GW-Releases "[main filedrop-centos icap-centos $(echo $tags)]" ../tmp
+
+        # Reset submodules to main
+        git checkout main
+        git reset --hard HEAD
+        git submodule update --init --recursive
+
+        # Create branch
+        BRANCH_NAME=visualization-${GITHUB_SHA::7}
+        git checkout -b $BRANCH_NAME
+
+        # Delete older graph
+        DIR="graph"
+        if [ -d "$DIR" ]; then
+        echo "deleting graph one"
+        # Take action if $DIR exists. #
+          git rm -r graph
+          # rm -rf graph
+          git commit -m "deleted older graph"
+        fi
+
+        # Copy all graphs
+        ls ../tmp
+        mkdir -p graph
+        cp -R ../tmp/* graph/
+
+        # Add new graph
+        git status
+        git add graph/*
+        git commit -m "Updates new graph"
+        git push -u origin $BRANCH_NAME
+
+        # create a pull request from a new branch to target branch, merge the PR and delete the source branch.
+        gh pr create --title "Updated visualization graphs" --body ""
+        sleep 5s
+        gh pr merge $BRANCH_NAME -s -d
+
+        # Delete temp files
+        rm -rf ../tmp
+        rm ../submodule_visualization.py
+
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUBPAT }}

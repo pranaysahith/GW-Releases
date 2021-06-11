@@ -1,0 +1,116 @@
+# This is a basic workflow to help you get started with Actions
+
+name: HAProxy-ICAP
+env:
+  AWS_DEFAULT_REGION: eu-west-1
+# Controls when the action will run. Triggers the workflow on push or pull request
+# events but only for the master branch
+on:
+  workflow_dispatch:
+    inputs:
+      monitoring_ip:
+        description: IP address of Monitoring server
+        default: 52.30.24.9
+        required: true
+  push:
+    branches: [ main ]
+    paths-ignore:
+      - 'aws-jmeter-test-engine'
+      - 'diagrams'
+      - 'documentation'
+      - 'GW-proxy'
+      - 'imgs'
+      - 'icap-infrastructure'
+      - 'k8-rebuild'
+      - 'k8-rebuild-folder-to-folder'
+      - 'lambda'
+      - 's-k8-proxy-rebuild'
+      - 'scripts'
+      - 'vmware-scripts'
+      - '.github/workflows/icap-server.yaml'
+      - '.github/workflows/proxy-rebuild.yaml'
+      - '.github/workflows/proxy-rebuild-ova.yaml'
+      - '.github/workflows/k8-rebuild.yaml'
+      - '.github/workflows/monitoring.yaml'
+      - '.github/workflows/visualization.yml'
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  build-ami:
+    # The type of runner that the job will run on
+    runs-on: ubuntu-latest
+    # Steps represent a sequence of tasks that will be executed as part of the job
+    steps:
+
+    # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it  
+    - uses: actions/checkout@v2
+      with:
+        submodules: true
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v1
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_DEFAULT_REGION }}
+
+    # build artifact
+    - name: Setup Packer
+      run: |
+        # install packer
+        cd gp-load-balancer/packer
+        git submodule update --init --recursive
+        curl -o packer.zip https://releases.hashicorp.com/packer/1.6.6/packer_1.6.6_linux_amd64.zip
+        unzip -o packer.zip
+        sudo mv packer /usr/local/bin
+        cd ../
+        
+    - name: Build AMI/OVA
+      run: |
+        cd gp-load-balancer
+        chmod +x packer/ova-check.sh
+        packer build -color=false -on-error=cleanup -var github_sha=${{ github.sha }} -var vm_name=haproxy-icap -var region=${{ env.AWS_DEFAULT_REGION }} -var aws_access_key=${{ secrets.AWS_ACCESS_KEY }} -var aws_secret_key=${{ secrets.AWS_SECRET_ACCESS_KEY }} -var elastic_host=${{ github.event.inputs.monitoring_ip }} -var elastic_port=9200 -var elastic_user=${{ secrets.MONITORING_USER }} -var elastic_password=${{ secrets.MONITORING_PASSWORD }} packer/aws-ova.json
+   
+   #Uncomment the following to deploy the created AMI on AWS EC2       
+  deploy-ami:
+    runs-on: ubuntu-latest
+    needs: build-ami
+    steps:
+      - name: Get the current instance id
+        id: get_id
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ env.AWS_DEFAULT_REGION }}
+        run: |
+          # instance_id="${{ steps.deploy.outputs.instance_id }}"
+          instance_id=$(aws ec2 describe-instances --filters 'Name=tag:Name,Values=dev-haproxy-icap' "Name=instance-state-name,Values=running" --output text --query 'Reservations[*].Instances[*].InstanceId')
+          echo ::set-output name=instance_id::$instance_id
+  
+      - name: Deploy AMI to dev
+        id: deploy
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ env.AWS_DEFAULT_REGION }}
+        run: |
+          ami_id=$(aws ec2 describe-images --filters "Name=name,Values=haproxy-icap-${{ github.sha }}" --query 'Images[*].[ImageId]' --output text)
+          result=$(aws ec2 run-instances --image-id $ami_id --count 1 --instance-type t2.medium --key-name naders --security-group-ids sg-0996adad67e6beef0 --tag-specifications 'ResourceType=instance, Tags=[{Key=Name,Value=dev-haproxy-icap}, {Key=Team, Value=haproxy-icap}, {Key=Owner, Value=githubactionAMIpacker}, {Key=Scope, Value=Export-OVA}, {Key=Delete, Value=false}, {Key=AMI_Name, Value=haproxy-icap-${{ github.sha }}}]')
+          sleep 3m
+          instance_id=$(echo $result | jq -r ".Instances[0].InstanceId")
+          echo "$instance_id is created."
+          instance_description=$(aws ec2 describe-instances --instance-ids $instance_id)
+          instance_state=$(echo $instance_description | jq -r ".Reservations[0].Instances[0].State.Name")
+          echo "Instance state is $instance_state"
+          if [[ "$instance_state" != "running" ]];then
+              echo "EC2 instance $instance_id created from AMI has failed to start in time, terminating the instance." 
+              aws ec2 terminate-instances --instance-ids $instance_id
+              exit -1
+          fi
+          instance_ip=$(echo $instance_description | jq -r ".Reservations[0].Instances[0].PublicIpAddress")
+          echo "Access the application at http://${instance_ip}"
+          echo ::set-output name=instance_ip::$instance_ip
+          echo ::set-output name=instance_id::$instance_id
+          echo ::set-output name=ami_id::$ami_id
+
+  

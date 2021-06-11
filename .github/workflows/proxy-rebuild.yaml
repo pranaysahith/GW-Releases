@@ -10,7 +10,15 @@ on:
     inputs:
       icap_server_ip: 
         description: "IP address of ICAP server to be used in proxy server"
-        default: "91.211.153.139"
+        default: 54.155.107.189
+        required: true
+      extra_regions:
+        description: Extra regions where AMI should be published. Pass multiple regions with comma separated.
+        default: eu-west-1
+        required: false
+      monitoring_ip:
+        description: IP address of Monitoring server
+        default: 52.30.24.9
         required: true
   push:
     branches: [ main ]
@@ -21,7 +29,10 @@ on:
       - 'icap-infrastructure'
       - 'k8-rebuild'
       - '.github/workflows/k8-rebuild.yaml'
-
+      - '.github/workflows/icap-server.yaml'
+      - '.github/workflows/proxy-rebuild-ova.yaml'
+      - '.github/workflows/haproxy.yaml'
+      - '.github/workflows/monitoring.yaml'
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
   build-ami:
@@ -55,11 +66,16 @@ jobs:
         unzip -o packer.zip
         sudo mv packer /usr/local/bin
         
-    - name: Build AMI/OVA
+    - name: Build AMI
       run: |
         cd vmware-scripts/packer
         cp -r target/proxy-rebuild/* setup/
-        packer build -color=false -on-error=cleanup -var github_sha=${{ github.sha }} -var vm_name=proxy-rebuild -var icap_server_ip=${{ github.event.inputs.icap_server_ip }} -var region=${{ env.AWS_DEFAULT_REGION }} -var aws_access_key=${{ secrets.AWS_ACCESS_KEY }} -var aws_secret_key=${{ secrets.AWS_SECRET_ACCESS_KEY }} aws-ami.json
+        cat > setup/env <<EOF
+        MONITORING_IP=${{ github.event.inputs.monitoring_ip }}
+        ICAP_IP=${{ github.event.inputs.icap_server_ip }}
+        EOF
+        RANDOM_STR=${{ github.sha }}-${{ github.run_number }}
+        packer build -color=false -on-error=cleanup -var github_sha=${RANDOM_STR} -var vm_name=proxy-rebuild -var region=${{ env.AWS_DEFAULT_REGION }} -var extra_regions=${{ github.event.inputs.extra_regions }} -var aws_access_key=${{ secrets.AWS_ACCESS_KEY }} -var aws_secret_key=${{ secrets.AWS_SECRET_ACCESS_KEY }} -var elastic_host=${{ github.event.inputs.monitoring_ip }} -var elastic_port=9200 -var elastic_user=${{ secrets.MONITORING_USER }} -var elastic_password=${{ secrets.MONITORING_PASSWORD }} aws-ami.json
 
   deploy-ami:
     runs-on: ubuntu-latest
@@ -83,9 +99,10 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: ${{ env.AWS_DEFAULT_REGION }}
         run: |
-          ami_id=$(aws ec2 describe-images --filters "Name=name,Values=proxy-rebuild-${{ github.sha }}" --query 'Images[*].[ImageId]' --output text)
-          result=$(aws ec2 run-instances --image-id $ami_id --count 1 --instance-type t2.large --key-name packer --security-group-ids sg-0120400d5eefb0b9e --tag-specifications 'ResourceType=instance, Tags=[{Key=Name,Value=dev-proxy-rebuild}, {Key=Team, Value=k8-proxy/proxy-rebuild}, {Key=Owner, Value=githubactionAMIpacker}, {Key=AMI_Name, Value=proxy-rebuild-${{ github.sha }}}]')
-          sleep 10m
+          RANDOM_STR=${{ github.sha }}-${{ github.run_number }}
+          ami_id=$(aws ec2 describe-images --filters "Name=name,Values=proxy-rebuild-${RANDOM_STR}" --query 'Images[*].[ImageId]' --output text)
+          result=$(aws ec2 run-instances --image-id $ami_id --count 1 --instance-type t2.large --key-name packer --security-group-ids sg-0120400d5eefb0b9e --tag-specifications 'ResourceType=instance, Tags=[{Key=Name,Value=dev-proxy-rebuild}, {Key=Delete,Value=No},{Key=Scope,Value=icap-server}, {Key=Team, Value=k8-proxy/proxy-rebuild}, {Key=Owner, Value=githubactionAMIpacker}, {Key=AMI_Name, Value=proxy-rebuild-${{ github.sha }}}]')
+          sleep 12m
           instance_id=$(echo $result | jq -r ".Instances[0].InstanceId")
           echo "$instance_id is created."
           instance_description=$(aws ec2 describe-instances --instance-ids $instance_id)
@@ -101,3 +118,44 @@ jobs:
           echo ::set-output name=instance_ip::$instance_ip
           echo ::set-output name=instance_id::$instance_id
           echo ::set-output name=ami_id::$ami_id
+
+      - name: Run tests on the VM
+        id: test
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ env.AWS_DEFAULT_REGION }}
+        run: |
+          instance_id="${{ steps.deploy.outputs.instance_id }}"
+          instance_ip="${{ steps.deploy.outputs.instance_ip }}"
+          ami_id="${{ steps.deploy.outputs.ami_id }}"
+          curl -kv https://glasswallsolutions.com/wp-content/uploads/2020/01/Glasswall-d-FIRST-Technology.pdf --resolve "glasswallsolutions.com:443:$instance_ip" --output Glasswall-d-FIRST-Technology.pdf
+          cat Glasswall-d-FIRST-Technology.pdf | grep "Glasswall Processed"
+          test_result=$?
+          if [[ $test_result -ne 0 ]];then
+            echo "Proxy test failed"
+            echo ::set-output name=test_result::$test_result
+          else
+            echo "Tests are successfully on the new instance, terminating old instance."
+            aws ec2 create-tags --resources $ami_id --tags Key=Test_Result,Value=Success
+            instance_id="${{ steps.get_id.outputs.instance_id }}"
+            if [[ ! -z "$instance_id" ]]; then
+              echo "$instance_id" | while IFS= read -r line ; do aws ec2 terminate-instances --instance-ids $line || true; done
+            fi
+          fi
+      - name: Delete instance if tests fail
+        if: ${{ failure() }}
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ env.AWS_DEFAULT_REGION }}
+        run: |
+          test_result="${{ steps.test.outputs.test_result }}"
+          if [[ $test_result != "0" ]];then
+            echo "Failed integration tests, terminating the newly deployed VM"
+            instance_id="${{ steps.deploy.outputs.instance_id }}"
+            ami_id="${{ steps.deploy.outputs.ami_id }}"
+            aws ec2 terminate-instances --instance-ids $instance_id
+            aws ec2 create-tags --resources $ami_id --tags Key=Test_Result,Value=Failed
+          fi
+          exit $test_result

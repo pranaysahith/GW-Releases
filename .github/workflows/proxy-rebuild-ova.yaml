@@ -1,0 +1,113 @@
+# This is a workflow to build proxy-rebuil OVA on ESXI
+
+name: proxy-rebuild-ova
+env:
+  AWS_DEFAULT_REGION: eu-west-1
+  VM_NAME: proxy-rebuild
+# Controls when the action will run. Triggers the workflow on push or pull request
+# events but only for the main branch
+on:
+  workflow_dispatch:
+    inputs:
+      icap_server_ip: 
+        description: "IP address of ICAP server to be used in proxy server"
+        default: "91.211.153.139"
+        required: true
+  push:
+    branches: [ main, proxy-rebuild-ova ]
+    paths-ignore:
+      - 'aws-jmeter-test-engine'
+      - 'gp-load-balancer'
+      - 'GW-proxy'
+      - 'icap-infrastructure'
+      - 'k8-rebuild'
+      - '.github/workflows/k8-rebuild.yaml'
+      - '.github/workflows/icap-server.yaml'
+      - '.github/workflows/proxy-rebuild.yaml'
+      - '.github/workflows/haproxy.yaml'
+      - '.github/workflows/monitoring.yaml'
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  build-ova:
+    # The type of runner that the job will run on
+    runs-on: ubuntu-latest
+    # Steps represent a sequence of tasks that will be executed as part of the job
+    steps:
+
+    # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it  
+    - uses: actions/checkout@v2
+      with:
+        submodules: true
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v1
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: eu-west-1
+
+    # build artifact
+    - name: Setup Packer, ovftool and xorriso
+      run: |
+        # install packer
+        cd vmware-scripts/packer
+        git submodule update --init --recursive
+        curl -o packer.zip https://releases.hashicorp.com/packer/1.6.6/packer_1.6.6_linux_amd64.zip
+        unzip -o packer.zip
+        sudo mv packer /usr/local/bin
+        # install ovftools
+        aws s3 cp s3://glasswall-sow-ova/packer-tools/VMware-ovftool-4.4.1-16812187-lin.x86_64.bundle .
+        chmod +x ./VMware-ovftool-4.4.1-16812187-lin.x86_64.bundle
+        echo | sudo ./VMware-ovftool-4.4.1-16812187-lin.x86_64.bundle --eulas-agreed
+        # install xorriso
+        sudo apt-get update -y
+        sudo apt-get install -y xorriso
+        
+    - name: Build AMI/OVA
+      run: |
+        cd vmware-scripts/packer
+        cp -r target/proxy-rebuild/* setup/
+        cat > vars.json <<EOF
+          {
+          "hostname":       "glasswall",
+          "domain":         "local",
+          "ssh_user":       "$VM_USER",
+          "ssh_pass":       "$VM_PASSWORD",
+          "cd_dir":         "cdrom",
+          "esxi_host":      "$ESXI_HOST",
+          "esxi_datastore": "datastore1",
+          "esxi_username":  "$ESXI_USER",
+          "esxi_password":  "$ESXI_PASSWORD",
+          "vswitch":        "VM",
+          "ssh_host":       "$VM_HOST",
+          "vm_name":        "packer-$VM_NAME",
+          "memory":         "8192",
+          "cpu":            "2"
+          }
+        EOF
+        cp cdrom/user-data.example cdrom/user-data
+        sed -i "s|GATEWAY|$VM_GATEWAY|g" cdrom/user-data
+        sed -i "s|IPADDRESS/NETMASK|$VM_HOST/$VM_NETMASK|g" cdrom/user-data
+        sed -i "s|NAMESERVER|8.8.8.8|g" cdrom/user-data
+        mv setup setup.orig
+        mv ./target/$VM_NAME setup
+        echo "ICAP_IP=$ICAP_SERVER_IP" > setup/env
+        packer build -on-error=cleanup -var-file=vars.json esxi.json
+      env:
+        ESXI_HOST: "${{ secrets.ESXI_HOST }}"
+        ESXI_USER: "${{ secrets.ESXI_USER }}"
+        ESXI_PASSWORD: "${{ secrets.ESXI_PASSWORD }}"
+        VM_HOST: "${{ secrets.VM_HOST }}"
+        VM_USER: "${{ secrets.VM_USER }}"
+        VM_PASSWORD: "${{ secrets.SSH_PASSWORD }}"
+        VM_GATEWAY: "${{ secrets.VM_GATEWAY }}"
+        VM_NAME: "${{ secrets.VM_NAME }}"
+        VM_NETMASK: "${{ secrets.VM_NETMASK }}"
+        ICAP_SERVER_IP: "${{ github.event.inputs.icap_server_ip }}"
+
+    - name: Upload the OVA to S3
+      env:
+        VM_NAME: "${{ env.VM_NAME }}"
+      run: |
+          mv vmware-scripts/packer/output-vmware-iso/packer-$VM_NAME.ova vmware-scripts/packer/output-vmware-iso/$VM_NAME-${{ github.sha }}.ova
+          aws s3 cp ./vmware-scripts/packer/output-vmware-iso/$VM_NAME-${{ github.sha }}.ova s3://glasswall-sow-ova/vms/$VM_NAME/

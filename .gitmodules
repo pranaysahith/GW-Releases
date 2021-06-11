@@ -4,18 +4,3 @@
 [submodule "k8-rebuild"]
 	path = k8-rebuild
 	url = https://github.com/k8-proxy/k8-rebuild
-[submodule "icap-infrastructure"]
-	path = icap-infrastructure
-	url = https://github.com/k8-proxy/icap-infrastructure
-[submodule "s-k8-proxy-rebuild"]
-	path = s-k8-proxy-rebuild
-	url = https://github.com/k8-proxy/s-k8-proxy-rebuild
-[submodule "gp-load-balancer"]
-	path = gp-load-balancer
-	url = https://github.com/k8-proxy/gp-load-balancer
-[submodule "aws-jmeter-test-engine"]
-	path = aws-jmeter-test-engine
-	url = https://github.com/k8-proxy/aws-jmeter-test-engine
-[submodule "GW-proxy"]
-	path = GW-proxy
-	url = https://github.com/k8-proxy/GW-proxy

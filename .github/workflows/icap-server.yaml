@@ -7,16 +7,40 @@ env:
 # events but only for the master branch
 on:
   workflow_dispatch:
-  push:
-    branches: [ main ]
-    paths-ignore:
-      - 'aws-jmeter-test-engine'
-      - 'gp-load-balancer'
-      - 'GW-proxy'
-      - 's-k8-proxy-rebuild'
-      - 'k8-rebuild'
-      - '.github/workflows/k8-rebuild.yaml'
-
+    inputs:
+      icap_branch:
+        description: icap-infrastructe branch to be used
+        default: k8-main
+        required: false
+      extra_regions:
+        description: Extra regions where AMI should be published. Pass multiple regions with comma separated.
+        default: eu-west-1,eu-west-2,eu-west-3,us-east-2,us-east-1,us-west-1
+        required: false
+      icap_flavour:
+        description: classic vs golang (GoLang and minio based)
+        default: classic
+        required: true
+      install_m_ui:
+        description: Management UI Required
+        default: "false"
+        required: true
+      install_csapi:
+        description: Install GW Cloud REST API
+        default: "true"
+        required: true
+      cs_api_image:
+        description: cs-k8s-api docker image
+        default: "glasswallsolutions/cs-k8s-api:latest"
+        required: true
+      install_filedrop_ui:
+        description: Install filedrop UI, this will install cs-k8s-api too.
+        default: "false"
+        required: true
+      create_ova:
+        description: Create OVA
+        default: "false"
+        required: true
+      
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
   build-ami:
@@ -30,10 +54,24 @@ jobs:
       with:
         submodules: true
 
-    # - name: Update submodules
-    #   run: |
-    #     git submodule foreach git fetch
-    #     git submodule foreach git pull origin main
+    - name: Show workflow inputs
+      run: |
+        echo BRANCH=${{ github.ref }}
+        echo ICAP_BRANCH=${{ github.event.inputs.icap_branch }}
+        echo INSTALL_CSAPI=${{ github.event.inputs.install_csapi }}
+        echo CS_API_IMAGE=${{ github.event.inputs.cs_api_image }}
+        echo INSTALL_FILEDROP_UI=${{ github.event.inputs.install_filedrop_ui }}
+        echo CREATE_OVA=${{ github.event.inputs.create_ova }}
+        echo ICAP_FLAVOUR=${{ github.event.inputs.icap_flavour }}
+        echo INSTALL_M_UI=${{ github.event.inputs.install_m_ui }}
+      
+    - name: Get Release tag name
+      id: get_rel_tag
+      run: |
+        git tag -l --contains $GITHUB_REF
+        latest_tag=$(git tag -l --contains $GITHUB_REF)
+        latest_tag=${latest_tag:-null}
+        echo ::set-output name=latest_tag::$latest_tag
 
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v1
@@ -54,11 +92,64 @@ jobs:
       run: |
         cd vmware-scripts/packer
         cp -r target/icap-server/* setup/
-        packer build -color=false -on-error=cleanup -var github_sha=${{ github.sha }} -var vm_name=icap-server -var region=${{ env.AWS_DEFAULT_REGION }} -var aws_access_key=${{ secrets.AWS_ACCESS_KEY }} -var aws_secret_key=${{ secrets.AWS_SECRET_ACCESS_KEY }} aws-ami.json
-
+        icap_flavour=${{ github.event.inputs.icap_flavour }}
+        icap_flavour=${icap_flavour:-classic}
+        install_csapi=${{ github.event.inputs.install_csapi }}
+        if [[ "${{ github.event.inputs.install_filedrop_ui }}" == "true" ]]; then
+          install_csapi="true"
+        fi
+        cat > setup/env <<EOF
+        DOCKER_USERNAME=${{ secrets.DOCKER_USERNAME }} 
+        DOCKER_PASSWORD=${{ secrets.DOCKER_NEW_PASSWORD }}
+        DOCKER_EMAIL=${{ secrets.DOCKER_EMAIL }}
+        SSH_PASSWORD=${{ secrets.ICAP_SSH_PASSWORD }}
+        ICAP_BRANCH=${{ github.event.inputs.icap_branch }}
+        ICAP_FLAVOUR=$icap_flavour
+        MINIO_SECRET=${{ secrets.MINIO_SECRET }}
+        TRANSACTIONS_SECRET=${{ secrets.TRANSACTIONS_SECRET }}
+        RABBIT_SECRET=${{ secrets.RABBIT_SECRET }}
+        INSTALL_CSAPI=${install_csapi}
+        CS_API_IMAGE=${{ github.event.inputs.cs_api_image }}
+        INSTALL_FILEDROP_UI=${{ github.event.inputs.install_filedrop_ui }}
+        CREATE_OVA=${{ github.event.inputs.create_ova }}
+        INSTALL_M_UI=${{ github.event.inputs.install_m_ui }}
+        BRANCH=${GITHUB_REF#refs/heads/}
+        EOF
+        latest_tag=${{ steps.get_rel_tag.outputs.latest_tag }}
+        sed -i 's/<vm_name>/icap-server/g' ova-export.json
+        RANDOM_STR=${{ github.run_id }}-${{ github.run_number }}
+        packer build -color=false -on-error=cleanup -var github_sha=$RANDOM_STR -var team_tag=k8 -var owner_tag=githubActions  -var vm_name=icap-server -var create_ova=${{ github.event.inputs.create_ova }} -var region=${{ env.AWS_DEFAULT_REGION }} -var extra_regions=${{ github.event.inputs.extra_regions }} -var aws_access_key=${{ secrets.AWS_ACCESS_KEY }} -var aws_secret_key=${{ secrets.AWS_SECRET_ACCESS_KEY }} -var cs_api=${install_csapi} -var filedrop_ui=${{ github.event.inputs.install_filedrop_ui }} -var icap_flavour=$icap_flavour -var install_m_ui=${{ github.event.inputs.install_m_ui }} -var latest_tag=$latest_tag aws-ami.json
+  
+    - name: Build Prod AMI/OVA
+      if: ${{ env.RELEASE_BRANCH == 'main' || github.ref == 'refs/heads/use_develop' }}
+      run: |
+        cd vmware-scripts/packer
+        echo $RELEASE_BRANCH
+        latest_tag=${{ steps.get_rel_tag.outputs.latest_tag }}
+        cp -r target/icap-server/* setup/
+        icap_flavour=${{ github.event.inputs.icap_flavour }}
+        icap_flavour=${icap_flavour:-classic}
+        install_csapi=${{ github.event.inputs.install_csapi }}
+        if [[ "${{ github.event.inputs.install_filedrop_ui }}" == "true" ]]; then
+          install_csapi="true"
+        fi
+        cat > setup/env <<EOF
+        DOCKER_USERNAME=${{ secrets.DOCKER_USERNAME }} 
+        DOCKER_PASSWORD=${{ secrets.DOCKER_NEW_PASSWORD }}
+        DOCKER_EMAIL=${{ secrets.DOCKER_EMAIL }}
+        EOF
+        sed -i 's/<vm_name>/icap-server/g' ova-export.json
+        mv setup/prod_sdk.sh setup/setup.sh
+        RANDOM_STR=${{ github.run_id }}-${{ github.run_number }}
+        ami_id=$(aws ec2 describe-images --filters "Name=name,Values=icap-server-${RANDOM_STR}" --query 'Images[*].[ImageId]' --output text)
+        RANDOM_STR=${{ github.run_id }}-${{ github.run_number }}-prd
+        packer build -color=false -on-error=cleanup -var github_sha=$RANDOM_STR -var team_tag=k8 -var owner_tag=githubActions  -var vm_name=icap-server -var create_ova=${{ github.event.inputs.create_ova }} -var region=${{ env.AWS_DEFAULT_REGION }} -var extra_regions=${{ github.event.inputs.extra_regions }} -var aws_access_key=${{ secrets.AWS_ACCESS_KEY }} -var aws_secret_key=${{ secrets.AWS_SECRET_ACCESS_KEY }} -var cs_api=${install_csapi} -var filedrop_ui=${{ github.event.inputs.install_filedrop_ui }} -var icap_flavour=$icap_flavour -var install_m_ui=${{ github.event.inputs.install_m_ui }} -var ami_id=$ami_id -var latest_tag=$latest_tag aws-ami-prod.json
+  
   deploy-ami:
     runs-on: ubuntu-latest
     needs: build-ami
+    env:
+      RELEASE_BRANCH: ${GITHUB_REF#refs/heads/}
     steps:
       - name: Get the current instance id
         id: get_id
@@ -68,7 +159,7 @@ jobs:
           AWS_DEFAULT_REGION: ${{ env.AWS_DEFAULT_REGION }}
         run: |
           # instance_id="${{ steps.deploy.outputs.instance_id }}"
-          instance_id=$(aws ec2 describe-instances --filters 'Name=tag:Name,Values=dev-icap-server' "Name=instance-state-name,Values=running" --output text --query 'Reservations[*].Instances[*].InstanceId')
+          instance_id=$(aws ec2 describe-instances --filters 'Name=tag:Name,Values=dev-icap-server' --output text --query 'Reservations[*].Instances[*].InstanceId')
           echo ::set-output name=instance_id::$instance_id
           
       - name: Deploy AMI to dev
@@ -78,9 +169,10 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: ${{ env.AWS_DEFAULT_REGION }}
         run: |
-          ami_id=$(aws ec2 describe-images --filters "Name=name,Values=icap-server-${{ github.sha }}" --query 'Images[*].[ImageId]' --output text)
-          result=$(aws ec2 run-instances --image-id $ami_id --count 1 --instance-type t2.large --key-name packer --security-group-ids sg-0120400d5eefb0b9e --tag-specifications 'ResourceType=instance, Tags=[{Key=Name,Value=dev-icap-server}, {Key=Team, Value=k8-proxy/icap-server}, {Key=Owner, Value=githubactionAMIpacker}, {Key=AMI_Name, Value=icap-server-${{ github.sha }}}]')
-          sleep 10m
+          RANDOM_STR=${{ github.run_id }}-${{ github.run_number }}
+          ami_id=$(aws ec2 describe-images --filters "Name=name,Values=icap-server-${RANDOM_STR}" --query 'Images[*].[ImageId]' --output text)
+          result=$(aws ec2 run-instances --image-id $ami_id --count 1 --instance-type t2.xlarge --key-name packer --security-group-ids sg-0120400d5eefb0b9e --tag-specifications "ResourceType=instance, Tags=[{Key=Name,Value=dev-icap-server}, {Key=Delete,Value=No},{Key=Scope,Value=icap-server}, {Key=Team, Value=k8-proxy/icap-server}, {Key=Owner, Value=githubactionAMIpacker}, {Key=AMI_Name, Value=icap-server-${RANDOM_STR}}]" --block-device-mappings 'DeviceName=/dev/sda1,Ebs={DeleteOnTermination=true,VolumeSize=20,VolumeType=gp2}' --instance-market-options 'MarketType=spot,SpotOptions={SpotInstanceType=one-time}')
+          sleep 8m
           instance_id=$(echo $result | jq -r ".Instances[0].InstanceId")
           echo "$instance_id is created."
           instance_description=$(aws ec2 describe-instances --instance-ids $instance_id)
@@ -92,7 +184,109 @@ jobs:
               exit -1
           fi
           instance_ip=$(echo $instance_description | jq -r ".Reservations[0].Instances[0].PublicIpAddress")
-          echo "Add the IP to the hosts file: ${instance_ip}"
+          echo "Connect to the ICAP server at: ${instance_ip}"
           echo ::set-output name=instance_ip::$instance_ip
           echo ::set-output name=instance_id::$instance_id
           echo ::set-output name=ami_id::$ami_id
+
+      - name: Checkout submodules
+        uses: actions/checkout@v2
+        with:
+          repository: k8-proxy/vmware-scripts
+          path: vmware-scripts
+
+      - name: Run tests on the VM
+        id: test
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ env.AWS_DEFAULT_REGION }}
+        run: |
+          instance_id="${{ steps.deploy.outputs.instance_id }}"
+          instance_ip="${{ steps.deploy.outputs.instance_ip }}"
+          ami_id="${{ steps.deploy.outputs.ami_id }}"
+          sudo apt-get -y install c-icap
+          cd vmware-scripts/HealthCheck
+          sed -i "/icmp/I,+1 d" config.yml
+          sed -i "/httpstring/I,+2 d" config.yml
+          sed -i "s/54.77.168.168/$instance_ip/g" config.yml
+          chmod +x ./pyCheck.py
+          ./pyCheck.py
+          test_result=$?
+          api_result=0
+          install_csapi=${{ github.event.inputs.install_csapi }}
+          install_filedrop_ui=${{ github.event.inputs.install_filedrop_ui }}
+          if [[ "$install_csapi" == "true" || "$install_filedrop_ui" == "true" ]]; then
+            curl http://$instance_ip/api/health
+            api_result=$?
+          fi
+          if [[ $test_result -ne 0 || $api_result -ne 0 ]];then
+            echo ::set-output name=test_result::$test_result
+          else
+            echo "Tests are successful on the new instance, terminating old instance."
+            aws ec2 create-tags --resources $ami_id --tags Key=Test_Result,Value=Success
+            aws ec2 modify-image-attribute --image-id $ami_id --launch-permission "Add=[{Group=all}]"
+            bucket=glasswall-sow-ova
+            key=vms/icap-server/icap-server-${{ github.run_id }}-${{ github.run_number }}.ova
+            if [[ ${{ github.event.inputs.create_ova }} == "true" ]]; then
+              # tag OVA in s3
+              FILEDROP_UI=${{ github.event.inputs.install_filedrop_ui }}
+              CS_API=${{ github.event.inputs.install_csapi }}
+              ICAP_FLAVOUR=${{ github.event.inputs.icap_flavour }}
+              INSTALL_M_UI=${{ github.event.inputs.install_m_ui }}
+              aws s3api put-object-tagging --bucket ${bucket} --key $key --tagging "TagSet=[{Key='Test_Result',Value='Success'},{Key='Filedrop_UI',Value=${FILEDROP_UI}},{Key='K8S_Flavor',Value='K3S'},{Key='CS_K8S_API',Value=${CS_API}},{Key='ICAP_FLAVOUR',Value=${ICAP_FLAVOUR}},{Key='M_UI',Value=${INSTALL_M_UI}}]"
+            fi
+            instance_id="${{ steps.get_id.outputs.instance_id }}"
+            if [[ ! -z "$instance_id" ]]; then
+              echo "$instance_id" | while IFS= read -r line ; do aws ec2 terminate-instances --instance-ids $line || true; done
+            fi
+          fi
+
+      - name: Tag prod Artifacts
+        if: ${{ (env.RELEASE_BRANCH == 'main' || github.ref == 'refs/heads/use_develop') && steps.test.outputs.test_result == 0 }}
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ env.AWS_DEFAULT_REGION }}
+        run: |
+          RANDOM_STR=${{ github.run_id }}-${{ github.run_number }}-prd
+          ami_id=$(aws ec2 describe-images --filters "Name=name,Values=icap-server-${RANDOM_STR}" --query 'Images[*].[ImageId]' --output text)
+          aws ec2 create-tags --resources $ami_id --tags Key=Test_Result,Value=Success
+          bucket=glasswall-sow-ova
+          key=vms/icap-server/icap-server-${{ github.run_id }}-${{ github.run_number }}-prd.ova
+          if [[ ${{ github.event.inputs.create_ova }} == "true" ]]; then
+            # tag OVA in s3
+            FILEDROP_UI=${{ github.event.inputs.install_filedrop_ui }}
+            CS_API=${{ github.event.inputs.install_csapi }}
+            ICAP_FLAVOUR=${{ github.event.inputs.icap_flavour }}
+            INSTALL_M_UI=${{ github.event.inputs.install_m_ui }}
+            aws s3api put-object-tagging --bucket ${bucket} --key $key --tagging "TagSet=[{Key='Test_Result',Value='Success'},{Key='Filedrop_UI',Value=${FILEDROP_UI}},{Key='K8S_Flavor',Value='K3S'},{Key='CS_K8S_API',Value=${CS_API}},{Key='ICAP_FLAVOUR',Value=${ICAP_FLAVOUR}},{Key='M_UI',Value=${INSTALL_M_UI}}]"
+          fi
+
+      - name: Delete instance if tests fail
+        if: ${{ failure() || steps.test.outputs.test_result != 0 }}
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ env.AWS_DEFAULT_REGION }}
+        run: |
+          test_result="${{ steps.test.outputs.test_result }}"
+          if [[ $test_result != "0" ]];then
+            echo "Failed integration tests, terminating the newly deployed VM"
+            instance_id="${{ steps.deploy.outputs.instance_id }}"
+            ami_id="${{ steps.deploy.outputs.ami_id }}"
+            aws ec2 terminate-instances --instance-ids $instance_id
+            aws ec2 create-tags --resources $ami_id --tags Key=Test_Result,Value=Failed
+            bucket=glasswall-sow-ova
+            key=vms/icap-server/icap-server-${{ github.run_id }}-${{ github.run_number }}.ova
+            if [[ ${{ github.event.inputs.create_ova }} == "true" ]]; then
+              # tag OVA in s3
+              FILEDROP_UI=${{ github.event.inputs.install_filedrop_ui }}
+              CS_API=${{ github.event.inputs.install_csapi }}
+              ICAP_FLAVOUR=${{ github.event.inputs.icap_flavour }}
+              INSTALL_M_UI=${{ github.event.inputs.install_m_ui }}
+              aws s3api put-object-tagging --bucket ${bucket} --key $key --tagging "TagSet=[{Key='Test_Result',Value='Failed'},{Key='Filedrop_UI',Value=${FILEDROP_UI}},{Key='K8S_Flavor',Value='K3S'},{Key='CS_K8S_API',Value=${CS_API}},{Key='ICAP_FLAVOUR',Value=${ICAP_FLAVOUR}},{Key='M_UI',Value=${INSTALL_M_UI}}]"
+            fi
+
+          fi
+          exit $test_result
