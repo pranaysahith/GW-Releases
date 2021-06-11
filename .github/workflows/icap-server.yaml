@@ -70,6 +70,8 @@ jobs:
     - name: Get Release tag name
       id: get_rel_tag
       run: |
+        git tag -l --contains $GITHUB_REF
+        echo "rel BRANCH: $RELEASE_BRANCH"
         latest_tag=$(git tag -l --contains $GITHUB_REF)
         latest_tag=${latest_tag:-null}
         echo ::set-output name=latest_tag::$latest_tag
@@ -140,7 +142,7 @@ jobs:
         DOCKER_EMAIL=${{ secrets.DOCKER_EMAIL }}
         EOF
         sed -i 's/<vm_name>/icap-server/g' ova-export.json
-        mv setup/prod_sdk.sh setup.sh
+        mv setup/prod_sdk.sh setup/setup.sh
         RANDOM_STR=${{ github.run_id }}-${{ github.run_number }}
         ami_id=$(aws ec2 describe-images --filters "Name=name,Values=icap-server-${RANDOM_STR}" --query 'Images[*].[ImageId]' --output text)
         RANDOM_STR=${{ github.run_id }}-${{ github.run_number }}-prd
