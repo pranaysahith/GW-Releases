@@ -147,7 +147,7 @@ jobs:
         packer build -color=false -on-error=cleanup -var github_sha=$RANDOM_STR -var team_tag=k8 -var owner_tag=githubActions  -var vm_name=icap-server -var create_ova=${{ github.event.inputs.create_ova }} -var region=${{ env.AWS_DEFAULT_REGION }} -var extra_regions=${{ github.event.inputs.extra_regions }} -var aws_access_key=${{ secrets.AWS_ACCESS_KEY }} -var aws_secret_key=${{ secrets.AWS_SECRET_ACCESS_KEY }} -var cs_api=${install_csapi} -var filedrop_ui=${{ github.event.inputs.install_filedrop_ui }} -var icap_flavour=$icap_flavour -var install_m_ui=${{ github.event.inputs.install_m_ui }} -var ami_id=$ami_id -var latest_tag=$latest_tag aws-ami-prod.json
 
     - name: upload Artifacts
-      uses: actions/upload-artifact@2
+      uses: actions/upload-artifact@v2
       with:
         name: tag-name
         path: latest_tag.txt
