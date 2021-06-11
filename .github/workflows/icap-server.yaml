@@ -68,8 +68,8 @@ jobs:
     - name: Get Release tag name
       id: get_rel_tag
       run: |
-        git tag -l --contains $GITHUB_REF
-        latest_tag=$(git tag -l --contains $GITHUB_REF)
+        git tag -l --contains $GITHUB_SHA
+        latest_tag=$(git tag -l --contains ${{ github.sha }})
         latest_tag=${latest_tag:-null}
         echo ::set-output name=latest_tag::$latest_tag
 
