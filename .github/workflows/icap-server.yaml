@@ -285,6 +285,8 @@ jobs:
           echo ::set-output name=ami_id::$ami_id
                 
       - uses: actions/checkout@v2
+        with:
+            token: ${{secrets.GITHUB_TOKEN}} 
       - name: Update github tag with AMI/OVA
         run: |
           latest_tag=${{ steps.get_rel_tag.outputs.latest_tag }}
