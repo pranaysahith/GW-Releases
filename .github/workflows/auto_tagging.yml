@@ -46,7 +46,7 @@ jobs:
             latest_tag="v0.2.0"
           else
             repo_name=$(git config --get remote.origin.url | sed 's/.*\/\([^ ]*\/[^.]*\).*/\1/')
-            latest_tag=$(curl -sL https://api.github.com/repos/$repo_name/releases | jq -r ".[0].tag_name")
+            latest_tag=$(git tag -l | grep ^v | sort -r | head -n1)
           fi
           
           echo "previous latest tag : $latest_tag"

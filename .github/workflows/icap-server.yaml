@@ -67,6 +67,13 @@ jobs:
         echo ICAP_FLAVOUR=${{ github.event.inputs.icap_flavour }}
         echo INSTALL_M_UI=${{ github.event.inputs.install_m_ui }}
       
+    - name: Get Release tag name
+      id: get_rel_tag
+      run: |
+        latest_tag=$(git tag -l --contains $GITHUB_REF)
+        latest_tag=${latest_tag:-null}
+        echo ::set-output name=latest_tag::$latest_tag
+
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v1
       with:
@@ -109,14 +116,17 @@ jobs:
         INSTALL_M_UI=${{ github.event.inputs.install_m_ui }}
         BRANCH=${GITHUB_REF#refs/heads/}
         EOF
+        latest_tag=${{ steps.get_rel_tag.outputs.latest_tag }}
         sed -i 's/<vm_name>/icap-server/g' ova-export.json
         RANDOM_STR=${{ github.run_id }}-${{ github.run_number }}
-        packer build -color=false -on-error=cleanup -var github_sha=$RANDOM_STR -var team_tag=k8 -var owner_tag=githubActions  -var vm_name=icap-server -var create_ova=${{ github.event.inputs.create_ova }} -var region=${{ env.AWS_DEFAULT_REGION }} -var extra_regions=${{ github.event.inputs.extra_regions }} -var aws_access_key=${{ secrets.AWS_ACCESS_KEY }} -var aws_secret_key=${{ secrets.AWS_SECRET_ACCESS_KEY }} -var cs_api=${install_csapi} -var filedrop_ui=${{ github.event.inputs.install_filedrop_ui }} -var icap_flavour=$icap_flavour -var install_m_ui=${{ github.event.inputs.install_m_ui }} aws-ami.json
+        packer build -color=false -on-error=cleanup -var github_sha=$RANDOM_STR -var team_tag=k8 -var owner_tag=githubActions  -var vm_name=icap-server -var create_ova=${{ github.event.inputs.create_ova }} -var region=${{ env.AWS_DEFAULT_REGION }} -var extra_regions=${{ github.event.inputs.extra_regions }} -var aws_access_key=${{ secrets.AWS_ACCESS_KEY }} -var aws_secret_key=${{ secrets.AWS_SECRET_ACCESS_KEY }} -var cs_api=${install_csapi} -var filedrop_ui=${{ github.event.inputs.install_filedrop_ui }} -var icap_flavour=$icap_flavour -var install_m_ui=${{ github.event.inputs.install_m_ui }} -var latest_tag=$latest_tag aws-ami.json
   
     - name: Build Prod AMI/OVA
-      if: ${{ env.RELEASE_BRANCH == 'main' || github.ref == 'refs/head/use_develop' }}
+      if: ${{ env.RELEASE_BRANCH == 'main' || github.ref == 'refs/heads/use_develop' }}
       run: |
         cd vmware-scripts/packer
+        echo $RELEASE_BRANCH
+        latest_tag=${{ steps.get_rel_tag.outputs.latest_tag }}
         cp -r target/icap-server/* setup/
         icap_flavour=${{ github.event.inputs.icap_flavour }}
         icap_flavour=${icap_flavour:-classic}
@@ -134,7 +144,7 @@ jobs:
         RANDOM_STR=${{ github.run_id }}-${{ github.run_number }}
         ami_id=$(aws ec2 describe-images --filters "Name=name,Values=icap-server-${RANDOM_STR}" --query 'Images[*].[ImageId]' --output text)
         RANDOM_STR=${{ github.run_id }}-${{ github.run_number }}-prd
-        packer build -color=false -on-error=cleanup -var github_sha=$RANDOM_STR -var team_tag=k8 -var owner_tag=githubActions  -var vm_name=icap-server -var create_ova=${{ github.event.inputs.create_ova }} -var region=${{ env.AWS_DEFAULT_REGION }} -var extra_regions=${{ github.event.inputs.extra_regions }} -var aws_access_key=${{ secrets.AWS_ACCESS_KEY }} -var aws_secret_key=${{ secrets.AWS_SECRET_ACCESS_KEY }} -var cs_api=${install_csapi} -var filedrop_ui=${{ github.event.inputs.install_filedrop_ui }} -var icap_flavour=$icap_flavour -var install_m_ui=${{ github.event.inputs.install_m_ui }} -var ami_id=$ami_id aws-ami-prod.json
+        packer build -color=false -on-error=cleanup -var github_sha=$RANDOM_STR -var team_tag=k8 -var owner_tag=githubActions  -var vm_name=icap-server -var create_ova=${{ github.event.inputs.create_ova }} -var region=${{ env.AWS_DEFAULT_REGION }} -var extra_regions=${{ github.event.inputs.extra_regions }} -var aws_access_key=${{ secrets.AWS_ACCESS_KEY }} -var aws_secret_key=${{ secrets.AWS_SECRET_ACCESS_KEY }} -var cs_api=${install_csapi} -var filedrop_ui=${{ github.event.inputs.install_filedrop_ui }} -var icap_flavour=$icap_flavour -var install_m_ui=${{ github.event.inputs.install_m_ui }} -var ami_id=$ami_id -var latest_tag=$latest_tag aws-ami-prod.json
   
   deploy-ami:
     runs-on: ubuntu-latest
@@ -234,7 +244,7 @@ jobs:
           fi
 
       - name: Tag prod Artifacts
-        if: ${{ (env.RELEASE_BRANCH == 'main' || github.ref == 'refs/head/use_develop') && steps.test.outputs.test_result == 0 }}
+        if: ${{ (env.RELEASE_BRANCH == 'main' || github.ref == 'refs/heads/use_develop') && steps.test.outputs.test_result == 0 }}
         run: |
           RANDOM_STR=${{ github.run_id }}-${{ github.run_number }}-prd
           ami_id=$(aws ec2 describe-images --filters "Name=name,Values=icap-server-${RANDOM_STR}" --query 'Images[*].[ImageId]' --output text)
