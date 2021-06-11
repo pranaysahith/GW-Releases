@@ -28,10 +28,6 @@ on:
         description: Install GW Cloud REST API
         default: "true"
         required: true
-      cs_api_image:
-        description: cs-k8s-api docker image
-        default: "glasswallsolutions/cs-k8s-api:latest"
-        required: true
       install_filedrop_ui:
         description: Install filedrop UI, this will install cs-k8s-api too.
         default: "false"
@@ -59,7 +55,6 @@ jobs:
         echo BRANCH=${{ github.ref }}
         echo ICAP_BRANCH=${{ github.event.inputs.icap_branch }}
         echo INSTALL_CSAPI=${{ github.event.inputs.install_csapi }}
-        echo CS_API_IMAGE=${{ github.event.inputs.cs_api_image }}
         echo INSTALL_FILEDROP_UI=${{ github.event.inputs.install_filedrop_ui }}
         echo CREATE_OVA=${{ github.event.inputs.create_ova }}
         echo ICAP_FLAVOUR=${{ github.event.inputs.icap_flavour }}
@@ -68,7 +63,6 @@ jobs:
     - name: Get Release tag name
       id: get_rel_tag
       run: |
-        git tag -l --contains $GITHUB_SHA
         latest_tag=$(git tag -l --contains ${{ github.sha }})
         latest_tag=${latest_tag:-null}
         echo ::set-output name=latest_tag::$latest_tag
@@ -110,7 +104,6 @@ jobs:
         TRANSACTIONS_SECRET=${{ secrets.TRANSACTIONS_SECRET }}
         RABBIT_SECRET=${{ secrets.RABBIT_SECRET }}
         INSTALL_CSAPI=${install_csapi}
-        CS_API_IMAGE=${{ github.event.inputs.cs_api_image }}
         INSTALL_FILEDROP_UI=${{ github.event.inputs.install_filedrop_ui }}
         CREATE_OVA=${{ github.event.inputs.create_ova }}
         INSTALL_M_UI=${{ github.event.inputs.install_m_ui }}
