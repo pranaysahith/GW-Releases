@@ -278,6 +278,7 @@ jobs:
         with:
             token: ${{secrets.GITHUB_TOKEN}} 
       - name: Update github tag with AMI/OVA
+        if: ${{ steps.get_rel_tag.outputs.latest_tag != 'null') && steps.test.outputs.test_result == 0 }}
         run: |
           latest_tag=${{ steps.get_rel_tag.outputs.latest_tag }}
           ami_id="${{ steps.deploy.outputs.ami_id }}"
