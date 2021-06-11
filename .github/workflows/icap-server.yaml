@@ -46,8 +46,6 @@ jobs:
   build-ami:
     # The type of runner that the job will run on
     runs-on: ubuntu-latest
-    env:
-      RELEASE_BRANCH: ${GITHUB_REF#refs/heads/}
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
 
@@ -71,7 +69,6 @@ jobs:
       id: get_rel_tag
       run: |
         git tag -l --contains $GITHUB_REF
-        echo "rel BRANCH: $RELEASE_BRANCH"
         latest_tag=$(git tag -l --contains $GITHUB_REF)
         latest_tag=${latest_tag:-null}
         echo ::set-output name=latest_tag::$latest_tag
@@ -247,6 +244,10 @@ jobs:
 
       - name: Tag prod Artifacts
         if: ${{ (env.RELEASE_BRANCH == 'main' || github.ref == 'refs/heads/use_develop') && steps.test.outputs.test_result == 0 }}
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ env.AWS_DEFAULT_REGION }}
         run: |
           RANDOM_STR=${{ github.run_id }}-${{ github.run_number }}-prd
           ami_id=$(aws ec2 describe-images --filters "Name=name,Values=icap-server-${RANDOM_STR}" --query 'Images[*].[ImageId]' --output text)
