@@ -72,6 +72,7 @@ jobs:
         latest_tag=$(git tag -l --contains ${{ github.sha }})
         latest_tag=${latest_tag:-null}
         echo ::set-output name=latest_tag::$latest_tag
+        echo $latest_tag > latest_tag.txt
 
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v1
@@ -144,6 +145,12 @@ jobs:
         ami_id=$(aws ec2 describe-images --filters "Name=name,Values=icap-server-${RANDOM_STR}" --query 'Images[*].[ImageId]' --output text)
         RANDOM_STR=${{ github.run_id }}-${{ github.run_number }}-prd
         packer build -color=false -on-error=cleanup -var github_sha=$RANDOM_STR -var team_tag=k8 -var owner_tag=githubActions  -var vm_name=icap-server -var create_ova=${{ github.event.inputs.create_ova }} -var region=${{ env.AWS_DEFAULT_REGION }} -var extra_regions=${{ github.event.inputs.extra_regions }} -var aws_access_key=${{ secrets.AWS_ACCESS_KEY }} -var aws_secret_key=${{ secrets.AWS_SECRET_ACCESS_KEY }} -var cs_api=${install_csapi} -var filedrop_ui=${{ github.event.inputs.install_filedrop_ui }} -var icap_flavour=$icap_flavour -var install_m_ui=${{ github.event.inputs.install_m_ui }} -var ami_id=$ami_id -var latest_tag=$latest_tag aws-ami-prod.json
+
+    - name: upload Artifacts
+      uses: actions/upload-artifact@2
+      with:
+        name: tag-name
+        path: latest_tag.txt
   
   deploy-ami:
     runs-on: ubuntu-latest
@@ -151,6 +158,16 @@ jobs:
     env:
       RELEASE_BRANCH: ${GITHUB_REF#refs/heads/}
     steps:
+      - name: Download the artifacts
+        uses: actions/download-artifact@v2
+        with:
+          name: tag-name
+      - name: Get Release tag name
+        id: get_rel_tag
+        run: |
+          latest_tag=$(cat latest_tag.txt)
+          latest_tag=${latest_tag:-null}
+          echo ::set-output name=latest_tag::$latest_tag
       - name: Get the current instance id
         id: get_id
         env:
@@ -230,11 +247,12 @@ jobs:
             key=vms/icap-server/icap-server-${{ github.run_id }}-${{ github.run_number }}.ova
             if [[ ${{ github.event.inputs.create_ova }} == "true" ]]; then
               # tag OVA in s3
+              latest_tag=${{ steps.get_rel_tag.outputs.latest_tag }}
               FILEDROP_UI=${{ github.event.inputs.install_filedrop_ui }}
               CS_API=${{ github.event.inputs.install_csapi }}
               ICAP_FLAVOUR=${{ github.event.inputs.icap_flavour }}
               INSTALL_M_UI=${{ github.event.inputs.install_m_ui }}
-              aws s3api put-object-tagging --bucket ${bucket} --key $key --tagging "TagSet=[{Key='Test_Result',Value='Success'},{Key='Filedrop_UI',Value=${FILEDROP_UI}},{Key='K8S_Flavor',Value='K3S'},{Key='CS_K8S_API',Value=${CS_API}},{Key='ICAP_FLAVOUR',Value=${ICAP_FLAVOUR}},{Key='M_UI',Value=${INSTALL_M_UI}}]"
+              aws s3api put-object-tagging --bucket ${bucket} --key $key --tagging "TagSet=[{Key='Test_Result',Value='Success'},{Key='Filedrop_UI',Value=${FILEDROP_UI}},{Key='K8S_Flavor',Value='K3S'},{Key='CS_K8S_API',Value=${CS_API}},{Key='ICAP_FLAVOUR',Value=${ICAP_FLAVOUR}},{Key='M_UI',Value=${INSTALL_M_UI}},{Key='latest_tag',Value=${latest_tag}}]"
             fi
             instance_id="${{ steps.get_id.outputs.instance_id }}"
             if [[ ! -z "$instance_id" ]]; then
@@ -256,11 +274,12 @@ jobs:
           key=vms/icap-server/icap-server-${{ github.run_id }}-${{ github.run_number }}-prd.ova
           if [[ ${{ github.event.inputs.create_ova }} == "true" ]]; then
             # tag OVA in s3
+            latest_tag=${{ steps.get_rel_tag.outputs.latest_tag }}
             FILEDROP_UI=${{ github.event.inputs.install_filedrop_ui }}
             CS_API=${{ github.event.inputs.install_csapi }}
             ICAP_FLAVOUR=${{ github.event.inputs.icap_flavour }}
             INSTALL_M_UI=${{ github.event.inputs.install_m_ui }}
-            aws s3api put-object-tagging --bucket ${bucket} --key $key --tagging "TagSet=[{Key='Test_Result',Value='Success'},{Key='Filedrop_UI',Value=${FILEDROP_UI}},{Key='K8S_Flavor',Value='K3S'},{Key='CS_K8S_API',Value=${CS_API}},{Key='ICAP_FLAVOUR',Value=${ICAP_FLAVOUR}},{Key='M_UI',Value=${INSTALL_M_UI}}]"
+            aws s3api put-object-tagging --bucket ${bucket} --key $key --tagging "TagSet=[{Key='Test_Result',Value='Success'},{Key='Filedrop_UI',Value=${FILEDROP_UI}},{Key='K8S_Flavor',Value='K3S'},{Key='CS_K8S_API',Value=${CS_API}},{Key='ICAP_FLAVOUR',Value=${ICAP_FLAVOUR}},{Key='M_UI',Value=${INSTALL_M_UI}},{Key='latest_tag',Value=${latest_tag}}]"
           fi
 
       - name: Delete instance if tests fail
