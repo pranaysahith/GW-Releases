@@ -63,12 +63,13 @@ jobs:
     - name: Get Release tag name
       id: get_rel_tag
       run: |
+        pwd
         git tag -l --contains ${{ github.sha }}
         latest_tag=$(git tag -l --contains ${{ github.sha }})
         latest_tag=${latest_tag:-null}
         echo ::set-output name=latest_tag::$latest_tag
-        echo $latest_tag > latest_tag.txt
-        exit -1
+        mkdir -p artifacts_staging
+        echo $latest_tag > artifacts_staging/latest_tag.txt
 
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v1
@@ -142,7 +143,7 @@ jobs:
       uses: actions/upload-artifact@v2
       with:
         name: tag-name
-        path: latest_tag.txt
+        path: artifacts_staging
   
   deploy-ami:
     runs-on: ubuntu-latest
@@ -152,12 +153,16 @@ jobs:
         uses: actions/download-artifact@v2
         with:
           name: tag-name
-      - name: Get Release tag name
+      - name: Get Release versions
         id: get_rel_tag
         run: |
-          latest_tag=$(cat latest_tag.txt)
+          latest_tag=$(cat artifacts_staging/latest_tag.txt)
+          sdk_version=$(cat artifacts_staging/sdk_version.txt)
+          prod_sdk_version=$(cat artifacts_staging/prod_sdk_version.txt)
           latest_tag=${latest_tag:-null}
           echo ::set-output name=latest_tag::$latest_tag
+          echo ::set-output name=sdk_version::$sdk_version
+          echo ::set-output name=prod_sdk_version::$prod_sdk_version
       - name: Get the current instance id
         id: get_id
         env:
@@ -232,6 +237,8 @@ jobs:
           else
             echo "Tests are successful on the new instance, terminating old instance."
             aws ec2 create-tags --resources $ami_id --tags Key=Test_Result,Value=Success
+            sdk_version=${{ steps.get_rel_tag.outputs.sdk_version }}
+            aws ec2 create-tags --resources $ami_id --tags Key=SDK_Version,Value=$sdk_version
             aws ec2 modify-image-attribute --image-id $ami_id --launch-permission "Add=[{Group=all}]"
             bucket=glasswall-sow-ova
             key=vms/icap-server/icap-server-${{ github.run_id }}-${{ github.run_number }}.ova
@@ -242,7 +249,7 @@ jobs:
               CS_API=${{ github.event.inputs.install_csapi }}
               ICAP_FLAVOUR=${{ github.event.inputs.icap_flavour }}
               INSTALL_M_UI=${{ github.event.inputs.install_m_ui }}
-              aws s3api put-object-tagging --bucket ${bucket} --key $key --tagging "TagSet=[{Key='Test_Result',Value='Success'},{Key='Filedrop_UI',Value=${FILEDROP_UI}},{Key='K8S_Flavor',Value='K3S'},{Key='CS_K8S_API',Value=${CS_API}},{Key='ICAP_FLAVOUR',Value=${ICAP_FLAVOUR}},{Key='M_UI',Value=${INSTALL_M_UI}},{Key='Release_Tag',Value=${latest_tag}}]"
+              aws s3api put-object-tagging --bucket ${bucket} --key $key --tagging "TagSet=[{Key='Test_Result',Value='Success'},{Key='Filedrop_UI',Value=${FILEDROP_UI}},{Key='K8S_Flavor',Value='K3S'},{Key='CS_K8S_API',Value=${CS_API}},{Key='ICAP_FLAVOUR',Value=${ICAP_FLAVOUR}},{Key='M_UI',Value=${INSTALL_M_UI}},{Key='Release_Tag',Value=${latest_tag}},{Key='SDK_Version',Value=${sdk_version}}]"
               echo ::set-output name=ova_path::s3://$bucket/$key
             fi
             instance_id="${{ steps.get_id.outputs.instance_id }}"
@@ -262,6 +269,8 @@ jobs:
           RANDOM_STR=${{ github.run_id }}-${{ github.run_number }}-prd
           ami_id=$(aws ec2 describe-images --filters "Name=name,Values=icap-server-${RANDOM_STR}" --query 'Images[*].[ImageId]' --output text)
           aws ec2 create-tags --resources $ami_id --tags Key=Test_Result,Value=Success
+          sdk_version=${{ steps.get_rel_tag.outputs.prod_sdk_version }}
+          aws ec2 create-tags --resources $ami_id --tags Key=SDK_Version,Value=$sdk_version
           bucket=glasswall-sow-ova
           key=vms/icap-server/icap-server-${{ github.run_id }}-${{ github.run_number }}-prd.ova
           if [[ ${{ github.event.inputs.create_ova }} == "true" ]]; then
@@ -271,7 +280,7 @@ jobs:
             CS_API=${{ github.event.inputs.install_csapi }}
             ICAP_FLAVOUR=${{ github.event.inputs.icap_flavour }}
             INSTALL_M_UI=${{ github.event.inputs.install_m_ui }}
-            aws s3api put-object-tagging --bucket ${bucket} --key $key --tagging "TagSet=[{Key='Test_Result',Value='Success'},{Key='Filedrop_UI',Value=${FILEDROP_UI}},{Key='K8S_Flavor',Value='K3S'},{Key='CS_K8S_API',Value=${CS_API}},{Key='ICAP_FLAVOUR',Value=${ICAP_FLAVOUR}},{Key='M_UI',Value=${INSTALL_M_UI}},{Key='Release_Tag',Value=${latest_tag}}]"
+            aws s3api put-object-tagging --bucket ${bucket} --key $key --tagging "TagSet=[{Key='Test_Result',Value='Success'},{Key='Filedrop_UI',Value=${FILEDROP_UI}},{Key='K8S_Flavor',Value='K3S'},{Key='CS_K8S_API',Value=${CS_API}},{Key='ICAP_FLAVOUR',Value=${ICAP_FLAVOUR}},{Key='M_UI',Value=${INSTALL_M_UI}},{Key='Release_Tag',Value=${latest_tag}},{Key='SDK_Version',Value=${sdk_version}}]"
             echo ::set-output name=ova_path::s3://$bucket/$key
           fi
           echo ::set-output name=ami_id::$ami_id
