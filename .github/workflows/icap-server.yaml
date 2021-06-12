@@ -63,10 +63,12 @@ jobs:
     - name: Get Release tag name
       id: get_rel_tag
       run: |
+        git tag -l --contains ${{ github.sha }}
         latest_tag=$(git tag -l --contains ${{ github.sha }})
         latest_tag=${latest_tag:-null}
         echo ::set-output name=latest_tag::$latest_tag
         echo $latest_tag > latest_tag.txt
+        exit -1
 
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v1
