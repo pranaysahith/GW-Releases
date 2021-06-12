@@ -156,9 +156,9 @@ jobs:
       - name: Get Release versions
         id: get_rel_tag
         run: |
-          latest_tag=$(cat artifacts_staging/latest_tag.txt)
-          sdk_version=$(cat artifacts_staging/sdk_version.txt)
-          prod_sdk_version=$(cat artifacts_staging/prod_sdk_version.txt)
+          latest_tag=$(cat latest_tag.txt)
+          sdk_version=$(cat sdk_version.txt)
+          prod_sdk_version=$(cat prod_sdk_version.txt || true)
           latest_tag=${latest_tag:-null}
           echo ::set-output name=latest_tag::$latest_tag
           echo ::set-output name=sdk_version::$sdk_version
