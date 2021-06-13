@@ -63,7 +63,7 @@ jobs:
     - name: Get Release tag name
       id: get_rel_tag
       run: |
-        pwd
+        git fetch --tags
         git tag -l --contains ${{ github.sha }}
         latest_tag=$(git tag -l --contains ${{ github.sha }})
         latest_tag=${latest_tag:-null}
@@ -306,9 +306,13 @@ jobs:
               new_desc="${new_desc} \nProd OVA: $prd_ova_path"
             fi
           fi
+          git fetch --tags
           tag_desc=$(git tag -l --format='%(contents)' $latest_tag)
           printf "$tag_desc \n$new_desc"
-          git tag -m $latest_tag -m $tag_desc -m "$(echo $new_desc)" -f --edit $latest_tag
+          printf "$tag_desc \n$new_desc" > new_desc
+          git config user.name github-actions@github.com
+          git config user.email github-actions
+          git tag -F new_desc -f $latest_tag
           git push origin $latest_tag --force
 
       - name: Delete instance if tests fail
