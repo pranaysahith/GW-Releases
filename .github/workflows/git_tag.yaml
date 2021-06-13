@@ -92,5 +92,5 @@ jobs:
           echo git tag -m $latest_tag -m $tag_desc -m "$(echo $new_desc)" -f --edit $latest_tag
           git config user.name github-actions@github.com
           git config user.email github-actions
-          git tag -m $latest_tag -m $tag_desc -m "$(echo $new_desc)" -f --edit $latest_tag
+          git tag -m $latest_tag -m $tag_desc -m "$(echo $new_desc)" -f $latest_tag
           git push origin $latest_tag --force
