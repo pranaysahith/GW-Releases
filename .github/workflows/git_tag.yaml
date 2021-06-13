@@ -74,14 +74,14 @@ jobs:
           latest_tag=${{ steps.get_rel_tag.outputs.latest_tag }}
           ami_id="{{ steps.deploy.outputs.ami_id }}"
           new_desc="Eval AMI: $ami_id"
-          if [[ ${{ github.event.inputs.create_ova }} == "true" ]]; then
+          if [[ "${{ github.event.inputs.create_ova }}" == "true" ]]; then
             ova_path="${{ steps.deploy.outputs.ova_path }}"
             new_desc="${new_desc} \nEval OVA: $ova_path"
           fi
-          if [[ ${{ github.ref }} == 'refs/heads/use_develop' ]]; then
+          if [[ "${{ github.ref }}" == 'refs/heads/use_develop' ]]; then
             prd_ami_id="{{ steps.prd.outputs.ami_id }}"
             new_desc="${new_desc} \nProd AMI: $prd_ami_id"
-            if [[ ${{ github.event.inputs.create_ova }} == "true" ]]; then
+            if [[ "${{ github.event.inputs.create_ova }}" == "true" ]]; then
               prd_ova_path="${{ steps.prd.outputs.ova_path }}"
               new_desc="${new_desc} \nProd OVA: $prd_ova_path"
             fi
