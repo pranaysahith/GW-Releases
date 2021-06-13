@@ -95,6 +95,9 @@ jobs:
         else
           GO_INFRA_BRANCH=main
         fi
+        echo "${GITHUB_REF#refs/heads/}"
+        echo GO_INFRA=$GO_INFRA_BRANCH
+        echo "${GO_INFRA_BRANCH}"
         cat > setup/env <<EOF
         DOCKER_USERNAME=${{ secrets.DOCKER_USERNAME }} 
         DOCKER_PASSWORD=${{ secrets.DOCKER_NEW_PASSWORD }}
