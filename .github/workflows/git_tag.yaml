@@ -86,8 +86,11 @@ jobs:
               new_desc="${new_desc} \nProd OVA: $prd_ova_path"
             fi
           fi
+          git fetch
+          sleep 2s
+          echo "*******************"
           tag_desc=$(git tag -l --format='%(contents)' $latest_tag)
           printf "$tag_desc \n$new_desc"
-          git fetch
+          echo git tag -m $latest_tag -m $tag_desc -m "$(echo $new_desc)" -f --edit $latest_tag
           git tag -m $latest_tag -m $tag_desc -m "$(echo $new_desc)" -f --edit $latest_tag
           git push origin $latest_tag --force
