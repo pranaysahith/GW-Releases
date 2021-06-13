@@ -27,6 +27,7 @@ jobs:
       id: get_rel_tag
       run: |
         pwd
+        git fetch
         git tag -l --contains ${{ github.sha }}
         latest_tag=$(git tag -l --contains ${{ github.sha }})
         latest_tag=${latest_tag:-null}
@@ -52,7 +53,6 @@ jobs:
         id: get_rel_tag
         run: |
           latest_tag=$(cat latest_tag.txt)
-          sdk_version=$(cat sdk_version.txt)
           prod_sdk_version=$(cat prod_sdk_version.txt || true)
           latest_tag=${latest_tag:-null}
           echo ::set-output name=latest_tag::$latest_tag
